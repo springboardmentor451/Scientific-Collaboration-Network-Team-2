@@ -1,16 +1,19 @@
 from fastapi import FastAPI
-from backend.app.database.connection import test_connection
+from .database.connection import engine, test_connection
+from .database.base import Base
+
+# Import models so SQLAlchemy knows about them
+from .models.user import User
 
 app = FastAPI(
     title="Scientific Collaboration Network Analyzer"
 )
 
+Base.metadata.create_all(bind=engine)
+
 @app.get("/")
 def home():
-    return {
-        "message": "Welcome to Scientific Collaboration Network Analyzer"
-    }
-
+    return {"message": "Scientific Collaboration Network Analyzer"}
 @app.get("/db-test")
 def db_test():
     if test_connection():
