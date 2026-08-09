@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from .database.connection import engine, test_connection
 from .database.base import Base
+from .routes.auth import router as auth_router
 
 # Import models so SQLAlchemy knows about them
 from .models.user import *
@@ -27,3 +28,7 @@ def db_test():
         "status": "failed",
         "message": "Database connection failed!"
     }
+
+app.include_router(auth_router)
+
+Base.metadata.create_all(bind=engine)
