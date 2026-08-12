@@ -8,6 +8,11 @@ class ResearcherCreate(BaseModel):
     biography: Optional[str] = None
     profile_url: Optional[str] = None
 
+class ResearcherUpdate(BaseModel):
+    institution_id: Optional[int] = None
+    research_area: Optional[str] = None
+    biography: Optional[str] = None
+    profile_url: Optional[str] = None
 
 class ResearcherResponse(BaseModel):
     id: int

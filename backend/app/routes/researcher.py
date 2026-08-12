@@ -5,6 +5,7 @@ from backend.app.database.session import get_db
 from backend.app.models.researchers import Researcher
 from backend.app.schemas.researcher import (
     ResearcherCreate,
+    ResearcherUpdate,
     ResearcherResponse
 )
 from backend.app.auth.oauth2 import get_current_user
@@ -50,3 +51,55 @@ def create_researcher(
     db.refresh(new_researcher)
 
     return new_researcher
+
+
+@router.get("/me", response_model=ResearcherResponse)
+def get_my_researcher_profile(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    user_id = int(current_user.get("sub"))
+
+    researcher = (
+        db.query(Researcher)
+        .filter(Researcher.user_id == user_id)
+        .first()
+    )
+
+    if not researcher:
+        raise HTTPException(
+            status_code=404,
+            detail="Researcher profile not found"
+        )
+
+    return researcher
+
+@router.put("/me", response_model=ResearcherResponse)
+def update_my_researcher_profile(
+    researcher_data: ResearcherUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    user_id = int(current_user.get("sub"))
+
+    researcher = (
+        db.query(Researcher)
+        .filter(Researcher.user_id == user_id)
+        .first()
+    )
+
+    if not researcher:
+        raise HTTPException(
+            status_code=404,
+            detail="Researcher profile not found"
+        )
+
+    researcher.institution_id = researcher_data.institution_id
+    researcher.research_area = researcher_data.research_area
+    researcher.biography = researcher_data.biography
+    researcher.profile_url = researcher_data.profile_url
+
+    db.commit()
+    db.refresh(researcher)
+
+    return researcher
