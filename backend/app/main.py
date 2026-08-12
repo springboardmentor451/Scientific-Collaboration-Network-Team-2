@@ -2,9 +2,12 @@ from fastapi import FastAPI
 from .database.connection import engine, test_connection
 from .database.base import Base
 from .routes.auth import router as auth_router
+from .routes.researcher import router as researcher_router
 
 # Import models so SQLAlchemy knows about them
-from .models.user import *
+from .models.users import *
+from .models.researchers import Researcher
+from .models.institutions import Institution
 
 app = FastAPI(
     title="Scientific Collaboration Network Analyzer"
@@ -30,5 +33,4 @@ def db_test():
     }
 
 app.include_router(auth_router)
-
-Base.metadata.create_all(bind=engine)
+app.include_router(researcher_router)
