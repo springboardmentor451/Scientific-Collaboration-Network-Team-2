@@ -123,68 +123,72 @@
 
     <script>
 
-        const loginForm = document.getElementById("loginForm");
-        const message = document.getElementById("message");
+    const loginForm = document.getElementById("loginForm");
+    const message = document.getElementById("message");
 
-        loginForm.addEventListener("submit", async function(event) {
+    loginForm.addEventListener("submit", async function(event) {
 
-            event.preventDefault();
+        event.preventDefault();
 
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
 
-            message.textContent = "Logging in...";
+        message.textContent = "Logging in...";
 
-            try {
+        try {
 
-                const response = await fetch(
-                    "http://127.0.0.1:8000/auth/login",
-                    {
-                        method: "POST",
+            const formData = new URLSearchParams();
 
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
+            formData.append("username", email);
+            formData.append("password", password);
 
-                        body: JSON.stringify({
-                            email: email,
-                            password: password
-                        })
-                    }
-                );
+            const response = await fetch(
+                "http://127.0.0.1:8000/auth/login",
+                {
+                    method: "POST",
 
-                const data = await response.json();
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
 
-                if (!response.ok) {
-
-                    message.textContent =
-                        data.detail || "Login failed.";
-
-                    return;
+                    body: formData.toString()
                 }
+            );
 
-                // Store JWT token
-                localStorage.setItem(
-                    "access_token",
-                    data.access_token
-                );
+            const data = await response.json();
 
-                message.textContent = "Login successful!";
+            console.log("Status:", response.status);
+            console.log("Response:", data);
 
-                // Go to dashboard
-                window.location.href = "index.html";
-
-            } catch (error) {
-
-                console.error(error);
+            if (!response.ok) {
 
                 message.textContent =
-                    "Unable to connect to the backend.";
+                    data.detail || "Login failed.";
+
+                return;
             }
 
-        });
+            // Save JWT token
+            localStorage.setItem(
+                "access_token",
+                data.access_token
+            );
 
-    </script>
+            message.textContent = "Login successful!";
 
+            // Open dashboard
+            window.location.href = "dashboard.html";
+
+        } catch (error) {
+
+            console.error("Login error:", error);
+
+            message.textContent =
+                "Unable to connect to the backend.";
+        }
+
+    });
+
+</script>
 </body>
 </html>
