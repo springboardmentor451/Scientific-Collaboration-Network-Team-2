@@ -50,6 +50,14 @@ class Project(Base):
     publications: Mapped[list["Publication"]] = relationship(back_populates="project")
     collaborations: Mapped[list["Collaboration"]] = relationship(back_populates="project")
 
+    @property
+    def lead_researcher_name(self) -> str | None:
+        return self.lead_researcher.full_name if self.lead_researcher else None
+
+    @property
+    def member_names(self) -> list[str]:
+        return [m.researcher.full_name for m in self.members if m.researcher]
+
     def __repr__(self) -> str:
         return f"<Project {self.title[:40]!r}>"
 

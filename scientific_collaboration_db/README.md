@@ -1,200 +1,164 @@
-# Scientific Collaboration Network Analyzer — Database Layer
+# Scientific Collaboration Network Analyzer — Connected Build
 
-PostgreSQL database + SQLAlchemy models + Alembic migrations + a FastAPI
-layer (read endpoints, JWT authentication, and validated write endpoints)
-for the Scientific Collaboration Network Analyzer project. Covers
-users/roles, institutions, researchers, publications & co-authorship,
-projects, institutional collaborations, conferences, citations, and audit
-logs — matching the modules in the project spec.
+This package contains your original FastAPI backend, wired up to the
+`ResearchSphere` frontend, plus a ready-to-restore seeded database.
 
-## What's new in this version
-- **Authentication** — register, login (JWT), and "who am I" endpoints
-- **Real email verification** — registration checks that the email's domain
-  actually has mail servers (a live DNS lookup, not just format), then sends
-  a real verification email with a click-to-verify link. Login is blocked
-  until the link is clicked. Works with a real Gmail account, or falls back
-  to logging the link to the console for local development without one.
-- **Validated write endpoints** — create/update Publications and Projects,
-  update your own Researcher profile
-- **Ownership & role checks** — only the corresponding author (or a system
-  admin) can edit a publication; only the lead researcher, an institution
-  admin, or a system admin can edit a project
-- **Business-rule validation** — DOI/ORCID format checks, password
-  strength, publication status workflow (draft → submitted → published →
-  archived), project end_date can't precede start_date, budget can't be
-  negative, and more
-
-## Stack
-- PostgreSQL 16 (via Docker)
-- SQLAlchemy 2.0 (ORM models)
-- Alembic (migrations)
-- FastAPI + Uvicorn (sample read API to prove the DB layer works)
-- Faker (realistic seed data)
-
-## Folder structure
 ```
-app/
-  core/config.py     # settings from .env
-  database.py         # engine, session, Base
-  models/              # one file per entity (User, Researcher, Publication, ...)
-  schemas/             # Pydantic response models
-  main.py              # FastAPI app with a few demo endpoints
-alembic/               # migration environment
-seed.py                 # populates sample data
-docker-compose.yml      # Postgres + pgAdmin
-requirements.txt
-.env.example
+final_package/
+├── backend/                 FastAPI app (unchanged except a few additions, see below)
+├── frontend/
+│   └── ResearchSphere.html  The connected frontend — open this in a browser
+├── database/
+│   └── scientific_collab_db_seed.sql   pg_dump of a working, seeded database
+└── README.md                 you are here
 ```
 
-## 1. Open in VS Code
-Unzip the folder and open it in VS Code:
+---
+
+## 1. Set up PostgreSQL
+
+You need a local PostgreSQL server (v14+). If you don't have one:
+
+- **Windows/Mac:** install from https://www.postgresql.org/download/
+- **Docker (easiest):** the backend already ships a `docker-compose.yml`. From
+  `backend/`, run:
+  ```
+  docker compose up -d db
+  ```
+  This starts Postgres on `localhost:5432` with user `scan_user` /
+  password `scan_password`, database `scientific_collab_db` — matching the
+  `.env` file already in `backend/`.
+
+If you're not using Docker, create the same database/user manually:
+```sql
+CREATE USER scan_user WITH PASSWORD 'scan_password';
+CREATE DATABASE scientific_collab_db OWNER scan_user;
+```
+
+## 2. Load the seeded database
+
+Restore the included dump so you start with real, working data instead of an
+empty schema:
+
 ```bash
-code scientific_collaboration_db
+psql -h localhost -U scan_user -d scientific_collab_db -f database/scientific_collab_db_seed.sql
 ```
 
-## 2. Create a virtual environment
+This gives you:
+- 6 institutions, 20 researchers, 30 publications, 8 projects, 6 conferences,
+  39 citation records
+- **Demo login accounts** (password for all: `Password123!`):
+  | Email | Role |
+  |---|---|
+  | `admin@researchsphere.dev` | System Admin |
+  | `institution.admin@researchsphere.dev` | Institution Admin |
+  | `reviewer@researchsphere.dev` | Reviewer |
+  | `researcher@researchsphere.dev` | Researcher |
+
+  (There are also 19 other randomly-generated researcher accounts from the
+  original `seed.py` — same password, emails visible via `SELECT email FROM
+  users;` if you want to try more.)
+
+If you'd rather start from a clean, empty schema instead of the seed dump,
+skip step 2 and instead run, from `backend/`:
 ```bash
-cd scientific_collaboration_db
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
-```
-
-## 3. Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-## 4. Configure environment variables
-```bash
-# Windows
-copy .env.example .env
-
-# macOS / Linux
-cp .env.example .env
-```
-The defaults in `.env.example` already match `docker-compose.yml`, so you
-normally don't need to edit anything for local development.
-
-## 5. Start PostgreSQL (Docker)
-```bash
-docker compose up -d db
-```
-This also starts **pgAdmin** at http://localhost:5050 (login:
-`admin@example.com` / `admin`) if you want a GUI to browse the database.
-
-Check the container is healthy:
-```bash
-docker compose ps
-```
-
-## 6. Generate and run the first migration
-```bash
-alembic revision --autogenerate -m "Initial schema"
-alembic upgrade head
-```
-This creates every table (users, institutions, researchers, publications,
-publication_authors, projects, project_members, collaborations, conferences,
-conference_participations, citations, audit_logs) directly from the
-SQLAlchemy models.
-
-## 7. Seed sample data
-```bash
+python -m alembic upgrade head
 python seed.py
+python add_demo_accounts.py   # adds the 4 memorable demo logins above
 ```
-Populates institutions, researchers/users, publications with co-authorship,
-funded projects, conferences, citations (internal + external), and
-institutional collaborations. Re-run with a full reset any time:
+
+## 3. Run the backend
+
 ```bash
-python seed.py --reset
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Mac/Linux
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-## 8. (Optional) Set up real email sending
-By default (no SMTP configured), verification links are printed to your
-terminal instead of emailed — so you can test the whole flow without a real
-mail account. To actually send real emails through a Gmail account:
+Check it's alive: open http://localhost:8000/health — should show
+`{"status":"ok","database":"connected"}`. Interactive API docs are at
+http://localhost:8000/docs.
 
-1. On the Google account you'll send from: enable **2-Step Verification**.
-2. Create an **App Password** at https://myaccount.google.com/apppasswords
-3. In your `.env` file, fill in:
+## 4. Open the frontend
+
+Just open `frontend/ResearchSphere.html` directly in your browser (double-click
+it, or drag it into a browser tab). No build step, no server needed for the
+frontend itself — it's a single HTML file that talks to the API at
+`http://localhost:8000` over `fetch()`.
+
+Log in with any of the demo accounts above (2-step verification is a cosmetic
+UI step — the code is echoed as a toast + the browser console, just click
+through it). You should see real data: real researchers, real publications,
+real projects, etc., not the placeholder data from before.
+
+If your backend runs somewhere other than `localhost:8000`, change this one
+line near the top of the `<script>` block in `ResearchSphere.html`:
+```js
+const API_BASE_URL = 'http://localhost:8000';
 ```
-SMTP_USERNAME=youraccount@gmail.com
-SMTP_PASSWORD=<the 16-character App Password, not your normal password>
-SMTP_FROM_EMAIL=youraccount@gmail.com
-```
-That's it — no other code changes needed.
 
-## 9. Run the API
-```bash
-uvicorn app.main:app --reload
-```
-Open http://localhost:8000/docs for interactive Swagger docs.
+---
 
-### Read-only endpoints (no login needed)
-- `GET /health` — confirms the API can reach PostgreSQL
-- `GET /institutions`
-- `GET /researchers`
-- `GET /publications`
-- `GET /projects`
-- `GET /conferences`
-- `GET /researchers/{id}/collaboration-network` — co-author graph for one researcher
+## What's actually connected now
 
-### Authentication & email verification
-- `POST /auth/register` — create an account + linked researcher profile.
-  Validates: email format **and deliverability** (a live DNS check that the
-  domain actually has mail servers — fake domains are rejected immediately),
-  email uniqueness, password strength (8+ chars, at least one letter and one
-  digit), ORCID format if provided. The account starts **unverified** and a
-  verification email is sent (or logged to the console in dev mode).
-- `GET /auth/verify-email?token=...` — the link from that email; marks the
-  account verified.
-- `POST /auth/login` — **blocked with a 403 until the email is verified.**
-  OAuth2-compatible (use the **Authorize** button, top-right of the Swagger
-  page — enter your email as the "username"). Once authorized, Swagger
-  automatically attaches your token to every subsequent request in the docs UI.
-- `POST /auth/login-json` — plain JSON login alternative (`{"email": ..., "password": ...}`),
-  for non-Swagger clients such as a future frontend.
-- `GET /auth/me` — returns the currently logged-in user.
+Previously, `ResearchSphere.html` was 100% mock data — a hardcoded in-memory
+`DB` object and a fake login flow that never touched a server. It now:
 
-> Note: accounts created by `seed.py` are marked pre-verified (they're demo
-> data, not real signups), so you can log into them immediately without
-> going through email verification.
+- **Logs in for real** against `POST /auth/login-json`, and registers new
+  accounts against `POST /auth/register` (self-registration always creates a
+  Researcher account — that's how the backend is written).
+- **Loads real data** for Researchers, Publications, Projects, Conferences,
+  and Citations from the API on every login, replacing the mock arrays.
+- **Persists your session** — refreshing the page keeps you logged in via a
+  saved JWT token, and logging out clears it.
+- **Creates real records** — the "Upload publication," "New project,"
+  "Register for conference," and "Link citation" modals now `POST` to the
+  backend instead of just showing a toast.
+- **Saves real profile edits** — the Profile page's "Save changes" calls
+  `PUT /researchers/me`.
+- **Shows real admin data** — the Users and Audit & Compliance pages (System
+  Admin role) pull from `GET /admin/users` and `GET /admin/audit-logs`.
 
-### Write endpoints (require login — click Authorize first)
-- `PUT /researchers/me` — update your own researcher profile (partial update)
-- `POST /publications` — create a publication; you're automatically added
-  as the corresponding author; add co-authors via `co_author_ids`
-- `PUT /publications/{id}` — update a publication. Only the corresponding
-  author or a system admin can edit it. Status changes must follow
-  `draft → submitted → published → archived` (no skipping steps)
-- `POST /projects` — create a project; defaults you as the lead researcher
-- `PUT /projects/{id}` — update a project. Only the lead researcher, an
-  institution admin, or a system admin can edit it
+## Known limitations (backend gaps, not frontend bugs)
 
-## Making schema changes later
-1. Edit/add a model in `app/models/`.
-2. Import it in `app/models/__init__.py` if it's a new file.
-3. Generate a migration: `alembic revision --autogenerate -m "describe change"`
-4. Apply it: `alembic upgrade head`
+A few things in the original mock UI don't have a matching backend capability
+yet. These are documented in the code (search `ResearchSphere.html` for
+comments near each) rather than silently faked:
 
-## Notes
-- All primary keys are UUIDs — safe for merging data from multiple
-  institutions/sources without collisions.
-- `PublicationAuthor`, `ProjectMember`, and `ConferenceParticipation` are
-  modeled as full association tables (not plain many-to-many) so they can
-  carry extra fields like author order, corresponding-author flag, project
-  role, and participation role.
-- `Citation` supports citing either another publication already in the
-  system, or an external work via `external_title` / `external_doi` /
-  `external_authors`, so reference lists aren't limited to what's stored
-  locally.
-- Passwords are hashed with bcrypt via `passlib` in the seed script — swap
-  in real registration/login logic when you build the auth module.
-- This repo intentionally ships only the database layer plus a minimal
-  read-only API to prove it end-to-end. Build the write endpoints,
-  authentication/JWT, dashboards, and reports on top of `app/models` and
-  `app/database.get_db`.
+- **"Add researcher" modal** is still cosmetic. The backend has no endpoint
+  to create a bare researcher profile without a full user account — the only
+  way to create a researcher is via `/auth/register`.
+- **Password change** isn't exposed by the API, so that section of the
+  Profile page is disabled.
+- **Institution Admins aren't linked to a specific institution** in the
+  current backend schema (only `Researcher` rows have an `institution_id`).
+  The frontend falls back to showing the first institution in the system for
+  that role — a real fix would add an `institution_id` to institution-admin
+  users.
+- **Project "progress %"** isn't tracked by the backend, so it's approximated
+  from the project's status (planned/active/completed) rather than a real
+  number.
+- **Skills/research-interest tags** on researcher cards are empty — the
+  `GET /researchers` list endpoint doesn't include them (the `Tag` model
+  exists in the database but isn't wired into that response yet).
+- Two small backend additions were made to support the frontend properly:
+  `auth.py` now auto-verifies new accounts when SMTP isn't configured (so
+  registration doesn't get stuck waiting on an email that can't be sent in a
+  local dev setup), and `ProjectOut` now includes `lead_researcher_name` and
+  `member_names` (the original response had no way to show a project's team).
+
+## Files changed from your original upload
+
+- `backend/app/routers/auth.py` — dev-mode auto-verification on register
+- `backend/app/models/project.py`, `backend/app/schemas/common.py`,
+  `backend/app/main.py` — added `lead_researcher_name`/`member_names` to
+  project responses
+- `backend/add_demo_accounts.py` — new, optional helper script
+- `frontend/ResearchSphere.html` — real API integration throughout (was 100%
+  mock before)
+
+Everything else — models, migrations, all other routers, schemas — is
+unchanged from what you uploaded.

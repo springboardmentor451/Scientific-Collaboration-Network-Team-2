@@ -5,7 +5,10 @@ Import every model here so:
 """
 from app.database import Base  # noqa: F401
 
+# from app.models.user import User, UserRole  # noqa: F401
+
 from app.models.user import User, UserRole  # noqa: F401
+from app.models.login_otp import LoginOtp  # noqa: F401
 from app.models.institution import Institution  # noqa: F401
 from app.models.tag import Tag, TagCategory, researcher_tags  # noqa: F401
 from app.models.researcher import Researcher  # noqa: F401
@@ -27,8 +30,11 @@ from app.models.audit import AuditLog  # noqa: F401
 
 __all__ = [
     "Base",
+    # "User",
+    # "UserRole",
     "User",
     "UserRole",
+    "LoginOtp",
     "Institution",
     "Tag",
     "TagCategory",

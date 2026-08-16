@@ -12,12 +12,40 @@ settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+# def hash_password(plain_password: str) -> str:
+#     return pwd_context.hash(plain_password)
+
+
+# def verify_password(plain_password: str, hashed_password: str) -> bool:
+#     return pwd_context.verify(plain_password, hashed_password)
+
 def hash_password(plain_password: str) -> str:
     return pwd_context.hash(plain_password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
+
+# ---------------------------------------------------------------------------
+# 2-step verification (login OTP) — same hashing approach as passwords, so
+# the 6-digit code is never stored anywhere in plain text.
+# ---------------------------------------------------------------------------
+import secrets
+
+
+def generate_otp_code() -> str:
+    """Cryptographically random 6-digit numeric code, zero-padded."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def hash_otp_code(code: str) -> str:
+    return pwd_context.hash(code)
+
+
+def verify_otp_code(code: str, code_hash: str) -> bool:
+    return pwd_context.verify(code, code_hash)
+# ----------
 
 
 def create_access_token(subject: str, extra_claims: dict | None = None) -> str:

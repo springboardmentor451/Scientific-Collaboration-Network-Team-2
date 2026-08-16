@@ -41,7 +41,21 @@ def send_email(to_email: str, subject: str, body_text: str) -> None:
         server.send_message(message)
 
 
+# def send_verification_email(to_email: str, verification_link: str) -> None:
+
+def send_otp_email(to_email: str, code: str) -> None:
+    subject = "Your sign-in code — Scientific Collaboration Network Analyzer"
+    body = (
+        f"Hi,\n\n"
+        f"Your 2-step verification code is: {code}\n\n"
+        f"This code expires in 10 minutes. If you didn't try to sign in, "
+        f"you can safely ignore this email.\n"
+    )
+    send_email(to_email, subject, body)
+
+
 def send_verification_email(to_email: str, verification_link: str) -> None:
+    # ------------
     subject = "Verify your email — Scientific Collaboration Network Analyzer"
     body = (
         f"Hi,\n\n"

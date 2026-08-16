@@ -58,6 +58,15 @@ class UserRegister(BaseModel):
         return v
 
 
+# class UserLogin(BaseModel):
+#     email: EmailStr
+#     password: str
+
+
+# class Token(BaseModel):
+#     access_token: str
+#     token_type: str = "bearer"
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
@@ -66,6 +75,41 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class OtpRequired(BaseModel):
+    """Returned by /auth/login-json instead of a Token — the password was
+    correct, but a 6-digit code was just emailed and must be verified via
+    /auth/verify-login-otp before an access token is issued."""
+    otp_required: bool = True
+    email: EmailStr
+    message: str = "A 6-digit verification code has been sent to your email."
+
+
+class VerifyOtp(BaseModel):
+    email: EmailStr
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def code_is_six_digits(cls, v: str) -> str:
+        v = v.strip()
+        if not re.fullmatch(r"\d{6}", v):
+            raise ValueError("code must be exactly 6 digits")
+        return v
+
+
+class ResendOtp(BaseModel):
+    email: EmailStr
+
+
+class GoogleAuth(BaseModel):
+    """id_token is the credential Google's Identity Services library hands
+    back to the frontend after the user picks a Google account."""
+    id_token: str
+
+    # _________
+    
 
 
 class UserOut(BaseModel):
