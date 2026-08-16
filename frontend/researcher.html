@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SciCollab - Researchers</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #222;
+            min-height: 100vh;
+        }
+
+        /* =========================
+           SIDEBAR
+        ========================= */
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 240px;
+            height: 100vh;
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            padding: 22px 15px;
+            z-index: 1000;
+        }
+
+        .logo {
+            color: #1f3c88;
+            font-size: 25px;
+            font-weight: bold;
+            padding: 0 15px;
+            margin-bottom: 35px;
+        }
+
+        .nav-section {
+            margin-bottom: 25px;
+        }
+
+        .nav-title {
+            font-size: 11px;
+            color: #9ca3af;
+            font-weight: bold;
+            padding: 0 15px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 11px 15px;
+            margin-bottom: 4px;
+            border-radius: 7px;
+            color: #4b5563;
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f1f5ff;
+            color: #1f3c88;
+        }
+
+        .nav-item.active {
+            background: #e9efff;
+            color: #1f3c88;
+            font-weight: bold;
+        }
+
+        .nav-icon {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        /* =========================
+           MAIN AREA
+        ========================= */
+
+        .main {
+            margin-left: 240px;
+            min-height: 100vh;
+        }
+
+        /* =========================
+           TOP BAR
+        ========================= */
+
+        .topbar {
+            height: 72px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+        }
+
+        .top-search {
+            width: 420px;
+            position: relative;
+        }
+
+        .top-search input {
+            width: 100%;
+            height: 40px;
+            border: 1px solid #d9dee8;
+            border-radius: 7px;
+            padding: 0 15px 0 40px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .top-search input:focus {
+            border-color: #1f3c88;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 11px;
+            color: #8a93a3;
+        }
+
+        .user-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #1f3c88;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .user-details {
+            line-height: 1.3;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .user-email {
+            font-size: 12px;
+            color: #777;
+        }
+
+        /* =========================
+           CONTENT
+        ========================= */
+
+        .content {
+            padding: 30px;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 25px;
+        }
+
+        .page-title h1 {
+            font-size: 28px;
+            color: #1f3c88;
+            margin-bottom: 7px;
+        }
+
+        .page-title p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .add-btn {
+            background: #1f3c88;
+            color: white;
+            border: none;
+            padding: 11px 18px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .add-btn:hover {
+            background: #162d69;
+        }
+
+        /* =========================
+           FILTER BAR
+        ========================= */
+
+        .filter-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 20px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .filter-search {
+            flex: 1;
+            position: relative;
+        }
+
+        .filter-search input {
+            width: 100%;
+            height: 42px;
+            border: 1px solid #d9dee8;
+            border-radius: 7px;
+            padding: 0 15px 0 40px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .filter-search input:focus {
+            border-color: #1f3c88;
+        }
+
+        .filter-search .search-icon {
+            top: 12px;
+        }
+
+        .filter-select {
+            height: 42px;
+            min-width: 150px;
+            padding: 0 12px;
+            border: 1px solid #d9dee8;
+            border-radius: 7px;
+            background: white;
+            color: #444;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* =========================
+           TABLE CARD
+        ========================= */
+
+        .table-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-header h2 {
+            font-size: 17px;
+            color: #333;
+        }
+
+        .record-count {
+            color: #777;
+            font-size: 13px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fc;
+            color: #555;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: left;
+            padding: 14px 18px;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 16px 18px;
+            border-bottom: 1px solid #eef0f4;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        tbody tr:hover {
+            background: #fafbfe;
+        }
+
+        .researcher-cell {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+        }
+
+        .researcher-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #e7edff;
+            color: #1f3c88;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .researcher-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .researcher-id {
+            color: #888;
+            font-size: 11px;
+            margin-top: 3px;
+        }
+
+        .email {
+            color: #555;
+        }
+
+        .field-badge {
+            display: inline-block;
+            background: #eef3ff;
+            color: #1f3c88;
+            padding: 6px 9px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .institution {
+            color: #555;
+        }
+
+        .not-assigned {
+            color: #999;
+            font-style: italic;
+        }
+
+        .actions {
+            display: flex;
+            gap: 7px;
+        }
+
+        .action-btn {
+            border: none;
+            padding: 7px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .view-btn {
+            background: #eef3ff;
+            color: #1f3c88;
+        }
+
+        .edit-action-btn {
+            background: #f1f1f1;
+            color: #444;
+        }
+
+        .action-btn:hover {
+            opacity: 0.8;
+        }
+
+        /* =========================
+           EMPTY / LOADING
+        ========================= */
+
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: #777;
+        }
+
+        .empty-state h3 {
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #777;
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 30px;
+            color: #c62828;
+        }
+
+        /* =========================
+           MODAL
+        ========================= */
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #1f3c88;
+            font-size: 21px;
+        }
+
+        .close-btn {
+            border: none;
+            background: transparent;
+            font-size: 25px;
+            cursor: pointer;
+            color: #777;
+        }
+
+        .detail-row {
+            margin-bottom: 16px;
+        }
+
+        .detail-label {
+            display: block;
+            color: #777;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            font-size: 15px;
+            font-weight: bold;
+            word-break: break-word;
+        }
+
+        /* =========================
+           MOBILE
+        ========================= */
+
+        @media (max-width: 900px) {
+
+            .sidebar {
+                width: 200px;
+            }
+
+            .main {
+                margin-left: 200px;
+            }
+
+            .top-search {
+                width: 300px;
+            }
+
+            .filter-row {
+                flex-wrap: wrap;
+            }
+
+            .filter-search {
+                min-width: 100%;
+            }
+        }
+
+        @media (max-width: 700px) {
+
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+            }
+
+            .main {
+                margin-left: 0;
+            }
+
+            .topbar {
+                height: auto;
+                padding: 15px;
+                gap: 15px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .top-search {
+                width: 100%;
+            }
+
+            .content {
+                padding: 20px 15px;
+            }
+
+            .page-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .add-btn {
+                width: 100%;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside class="sidebar">
+
+        <div class="logo">
+            SciCollab
+        </div>
+
+
+        <div class="nav-section">
+
+            <div class="nav-title">
+                Main
+            </div>
+
+
+            <a
+                href="dashboard.html"
+                class="nav-item">
+
+                <span class="nav-icon">▦</span>
+                Dashboard
+
+            </a>
+
+
+            <a
+                href="researcher.html"
+                class="nav-item active">
+
+                <span class="nav-icon">♙</span>
+                Researchers
+
+            </a>
+
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="comingSoon(event, 'Publications')">
+
+                <span class="nav-icon">▤</span>
+                Publications
+
+            </a>
+
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="comingSoon(event, 'Projects')">
+
+                <span class="nav-icon">▣</span>
+                Projects
+
+            </a>
+
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="comingSoon(event, 'Collaborations')">
+
+                <span class="nav-icon">◎</span>
+                Collaborations
+
+            </a>
+
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="comingSoon(event, 'Conferences')">
+
+                <span class="nav-icon">▥</span>
+                Conferences
+
+            </a>
+
+        </div>
+
+
+        <div class="nav-section">
+
+            <div class="nav-title">
+                Other
+            </div>
+
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="comingSoon(event, 'Institutions')">
+
+                <span class="nav-icon">▤</span>
+                Institutions
+
+            </a>
+
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="comingSoon(event, 'Reports')">
+
+                <span class="nav-icon">▥</span>
+                Reports
+
+            </a>
+
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="comingSoon(event, 'Settings')">
+
+                <span class="nav-icon">⚙</span>
+                Settings
+
+            </a>
+
+        </div>
+
+
+        <div class="nav-section">
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="logout()">
+
+                <span class="nav-icon">↪</span>
+                Logout
+
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="main">
+
+
+        <!-- ================= TOP BAR ================= -->
+
+        <header class="topbar">
+
+
+            <div class="top-search">
+
+                <span class="search-icon">
+                    🔍
+                </span>
+
+                <input
+                    type="text"
+                    id="globalSearch"
+                    placeholder="Search anything..."
+                    oninput="globalSearch()">
+
+            </div>
+
+
+            <div class="user-area">
+
+                <div
+                    class="user-avatar"
+                    id="userAvatar">
+                    --
+                </div>
+
+                <div class="user-details">
+
+                    <div
+                        class="user-name"
+                        id="userName">
+                        Loading...
+                    </div>
+
+                    <div
+                        class="user-email"
+                        id="userEmail">
+                        Loading...
+                    </div>
+
+                </div>
+
+            </div>
+
+
+        </header>
+
+
+        <!-- ================= CONTENT ================= -->
+
+        <section class="content">
+
+
+            <!-- PAGE HEADER -->
+
+            <div class="page-header">
+
+                <div class="page-title">
+
+                    <h1>
+                        Researchers
+                    </h1>
+
+                    <p>
+                        Manage and explore researcher profiles.
+                    </p>
+
+                </div>
+
+
+                <button
+                    class="add-btn"
+                    onclick="addResearcher()">
+
+                    + Add Researcher
+
+                </button>
+
+            </div>
+
+
+            <!-- ================= FILTERS ================= -->
+
+            <div class="filter-card">
+
+                <div class="filter-row">
+
+
+                    <div class="filter-search">
+
+                        <span class="search-icon">
+                            🔍
+                        </span>
+
+                        <input
+                            type="text"
+                            id="researcherSearch"
+                            placeholder="Search researcher..."
+                            oninput="filterResearchers()">
+
+                    </div>
+
+
+                    <select
+                        id="fieldFilter"
+                        class="filter-select"
+                        onchange="filterResearchers()">
+
+                        <option value="all">
+                            All Fields
+                        </option>
+
+                    </select>
+
+
+                    <select
+                        id="institutionFilter"
+                        class="filter-select"
+                        onchange="filterResearchers()">
+
+                        <option value="all">
+                            All Institutions
+                        </option>
+
+                    </select>
+
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= TABLE ================= -->
+
+            <div class="table-card">
+
+
+                <div class="table-header">
+
+                    <h2>
+                        Researcher Records
+                    </h2>
+
+                    <span
+                        class="record-count"
+                        id="recordCount">
+                        0 researchers
+                    </span>
+
+                </div>
+
+
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    ID
+                                </th>
+
+                                <th>
+                                    Researcher
+                                </th>
+
+                                <th>
+                                    Email
+                                </th>
+
+                                <th>
+                                    Field
+                                </th>
+
+                                <th>
+                                    Institution
+                                </th>
+
+                                <th>
+                                    Actions
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="researcherTable">
+
+                            <tr>
+
+                                <td
+                                    colspan="6"
+                                    class="loading">
+
+                                    Loading researchers...
+
+                                </td>
+
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+
+            <p id="message"></p>
+
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         VIEW RESEARCHER MODAL
+    ====================================================== -->
+
+    <div
+        class="modal"
+        id="viewModal">
+
+        <div class="modal-content">
+
+
+            <div class="modal-header">
+
+                <h2>
+                    Researcher Details
+                </h2>
+
+                <button
+                    class="close-btn"
+                    onclick="closeModal()">
+
+                    ×
+
+                </button>
+
+            </div>
+
+
+            <div class="detail-row">
+
+                <span class="detail-label">
+                    Researcher ID
+                </span>
+
+                <span
+                    class="detail-value"
+                    id="modalId">
+                </span>
+
+            </div>
+
+
+            <div class="detail-row">
+
+                <span class="detail-label">
+                    Name
+                </span>
+
+                <span
+                    class="detail-value"
+                    id="modalName">
+                </span>
+
+            </div>
+
+
+            <div class="detail-row">
+
+                <span class="detail-label">
+                    Email
+                </span>
+
+                <span
+                    class="detail-value"
+                    id="modalEmail">
+                </span>
+
+            </div>
+
+
+            <div class="detail-row">
+
+                <span class="detail-label">
+                    Research Area
+                </span>
+
+                <span
+                    class="detail-value"
+                    id="modalArea">
+                </span>
+
+            </div>
+
+
+            <div class="detail-row">
+
+                <span class="detail-label">
+                    Institution
+                </span>
+
+                <span
+                    class="detail-value"
+                    id="modalInstitution">
+                </span>
+
+            </div>
+
+
+            <div class="detail-row">
+
+                <span class="detail-label">
+                    Biography
+                </span>
+
+                <span
+                    class="detail-value"
+                    id="modalBiography">
+                </span>
+
+            </div>
+
+
+            <div class="detail-row">
+
+                <span class="detail-label">
+                    Profile URL
+                </span>
+
+                <span
+                    class="detail-value"
+                    id="modalProfile">
+                </span>
+
+            </div>
+
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+    ====================================================== -->
+
+    <script>
+
+        let researchers = [];
+
+
+        /* =====================================================
+           LOAD USER
+        ===================================================== */
+
+        async function loadUser() {
+
+            const token =
+                localStorage.getItem("access_token");
+
+
+            if (!token) {
+
+                window.location.href =
+                    "login.html";
+
+                return;
+
+            }
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "http://127.0.0.1:8000/auth/me",
+                        {
+                            method: "GET",
+
+                            headers: {
+                                "Authorization":
+                                    "Bearer " + token
+                            }
+
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    localStorage.removeItem(
+                        "access_token"
+                    );
+
+                    window.location.href =
+                        "login.html";
+
+                    return;
+
+                }
+
+
+                const email =
+                    data.email || "";
+
+
+                document.getElementById(
+                    "userName"
+                ).textContent =
+                    email;
+
+
+                document.getElementById(
+                    "userEmail"
+                ).textContent =
+                    email;
+
+
+                document.getElementById(
+                    "userAvatar"
+                ).textContent =
+                    email
+                        .substring(0, 2)
+                        .toUpperCase();
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    "User loading error:",
+                    error
+                );
+
+            }
+
+        }
+
+
+        /* =====================================================
+           LOAD RESEARCHERS
+        ===================================================== */
+
+        async function loadResearchers() {
+
+            const token =
+                localStorage.getItem("access_token");
+
+
+            if (!token) {
+
+                window.location.href =
+                    "login.html";
+
+                return;
+
+            }
+
+
+            const table =
+                document.getElementById(
+                    "researcherTable"
+                );
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "http://127.0.0.1:8000/researchers/",
+                        {
+                            method: "GET",
+
+                            headers: {
+
+                                "Authorization":
+                                    "Bearer " + token,
+
+                                "Accept":
+                                    "application/json"
+
+                            }
+
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                console.log(
+                    "Researchers:",
+                    data
+                );
+
+
+                if (!response.ok) {
+
+                    if (response.status === 401) {
+
+                        localStorage.removeItem(
+                            "access_token"
+                        );
+
+                        window.location.href =
+                            "login.html";
+
+                        return;
+
+                    }
+
+
+                    throw new Error(
+                        data.detail ||
+                        "Unable to load researchers"
+                    );
+
+                }
+
+
+                researchers =
+                    Array.isArray(data)
+                        ? data
+                        : [];
+
+
+                createFilters();
+
+
+                displayResearchers(
+                    researchers
+                );
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    "Researchers loading error:",
+                    error
+                );
+
+
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="error-message">
+                                Unable to load researchers.
+                            </div>
+                        </td>
+                    </tr>
+                `;
+
+            }
+
+        }
+
+
+        /* =====================================================
+           CREATE FILTER OPTIONS
+        ===================================================== */
+
+        function createFilters() {
+
+            const fieldFilter =
+                document.getElementById(
+                    "fieldFilter"
+                );
+
+
+            const institutionFilter =
+                document.getElementById(
+                    "institutionFilter"
+                );
+
+
+            const fields =
+                [
+                    ...new Set(
+                        researchers
+                            .map(
+                                r =>
+                                    r.research_area
+                            )
+                            .filter(Boolean)
+                    )
+                ];
+
+
+            const institutions =
+                [
+                    ...new Set(
+                        researchers
+                            .map(
+                                r =>
+                                    r.institution_id
+                            )
+                            .filter(
+                                value =>
+                                    value !== null &&
+                                    value !== undefined
+                            )
+                    )
+                ];
+
+
+            fields.forEach(
+                field => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+                    option.value =
+                        field;
+
+                    option.textContent =
+                        field;
+
+                    fieldFilter.appendChild(
+                        option
+                    );
+
+                }
+            );
+
+
+            institutions.forEach(
+                institution => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+                    option.value =
+                        institution;
+
+                    option.textContent =
+                        "Institution " +
+                        institution;
+
+                    institutionFilter.appendChild(
+                        option
+                    );
+
+                }
+            );
+
+        }
+
+
+        /* =====================================================
+           DISPLAY RESEARCHERS
+        ===================================================== */
+
+        function displayResearchers(
+            data
+        ) {
+
+            const table =
+                document.getElementById(
+                    "researcherTable"
+                );
+
+
+            const count =
+                document.getElementById(
+                    "recordCount"
+                );
+
+
+            count.textContent =
+                data.length +
+                (
+                    data.length === 1
+                        ? " researcher"
+                        : " researchers"
+                );
+
+
+            if (data.length === 0) {
+
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+
+                                <h3>
+                                    No researchers found
+                                </h3>
+
+                                <p>
+                                    No researcher records match your search.
+                                </p>
+
+                            </div>
+                        </td>
+                    </tr>
+                `;
+
+                return;
+
+            }
+
+
+            table.innerHTML =
+                data.map(
+                    researcher => {
+
+                        const name =
+                            researcher.full_name ||
+                            "Unknown";
+
+
+                        const email =
+                            researcher.email ||
+                            "Not provided";
+
+
+                        const field =
+                            researcher.research_area ||
+                            "Not provided";
+
+
+                        const institution =
+                            researcher.institution_id !== null &&
+                            researcher.institution_id !== undefined
+                                ? "Institution " +
+                                  researcher.institution_id
+                                : "Not assigned";
+
+
+                        const initials =
+                            getInitials(
+                                name
+                            );
+
+
+                        return `
+
+                            <tr>
+
+                                <td>
+                                    <strong>
+                                        ${escapeHtml(
+                                            researcher.id
+                                        )}
+                                    </strong>
+                                </td>
+
+
+                                <td>
+
+                                    <div class="researcher-cell">
+
+                                        <div class="researcher-avatar">
+                                            ${escapeHtml(
+                                                initials
+                                            )}
+                                        </div>
+
+                                        <div>
+
+                                            <div class="researcher-name">
+                                                ${escapeHtml(
+                                                    name
+                                                )}
+                                            </div>
+
+                                            <div class="researcher-id">
+                                                User ID:
+                                                ${escapeHtml(
+                                                    researcher.user_id
+                                                )}
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="email">
+                                        ${escapeHtml(
+                                            email
+                                        )}
+                                    </span>
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="field-badge">
+                                        ${escapeHtml(
+                                            field
+                                        )}
+                                    </span>
+
+                                </td>
+
+
+                                <td>
+
+                                    <span
+                                        class="${
+                                            researcher.institution_id === null
+                                                ? "not-assigned"
+                                                : "institution"
+                                        }">
+
+                                        ${escapeHtml(
+                                            institution
+                                        )}
+
+                                    </span>
+
+                                </td>
+
+
+                                <td>
+
+                                    <div class="actions">
+
+                                        <button
+                                            class="action-btn view-btn"
+                                            onclick="viewResearcher(${researcher.id})">
+
+                                            View
+
+                                        </button>
+
+
+                                        <button
+                                            class="action-btn edit-action-btn"
+                                            onclick="editResearcher(${researcher.id})">
+
+                                            Edit
+
+                                        </button>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        `;
+
+                    }
+                ).join("");
+
+        }
+
+
+        /* =====================================================
+           FILTER RESEARCHERS
+        ===================================================== */
+
+        function filterResearchers() {
+
+            const search =
+                document
+                    .getElementById(
+                        "researcherSearch"
+                    )
+                    .value
+                    .toLowerCase();
+
+
+            const field =
+                document
+                    .getElementById(
+                        "fieldFilter"
+                    )
+                    .value;
+
+
+            const institution =
+                document
+                    .getElementById(
+                        "institutionFilter"
+                    )
+                    .value;
+
+
+            const filtered =
+                researchers.filter(
+                    researcher => {
+
+                        const name =
+                            (
+                                researcher.full_name ||
+                                ""
+                            ).toLowerCase();
+
+
+                        const email =
+                            (
+                                researcher.email ||
+                                ""
+                            ).toLowerCase();
+
+
+                        const area =
+                            (
+                                researcher.research_area ||
+                                ""
+                            ).toLowerCase();
+
+
+                        const matchesSearch =
+                            name.includes(search) ||
+                            email.includes(search) ||
+                            area.includes(search);
+
+
+                        const matchesField =
+                            field === "all" ||
+                            researcher.research_area === field;
+
+
+                        const matchesInstitution =
+                            institution === "all" ||
+                            String(
+                                researcher.institution_id
+                            ) === institution;
+
+
+                        return (
+                            matchesSearch &&
+                            matchesField &&
+                            matchesInstitution
+                        );
+
+                    }
+                );
+
+
+            displayResearchers(
+                filtered
+            );
+
+        }
+
+
+        /* =====================================================
+           GLOBAL SEARCH
+        ===================================================== */
+
+        function globalSearch() {
+
+            const search =
+                document
+                    .getElementById(
+                        "globalSearch"
+                    )
+                    .value;
+
+
+            document.getElementById(
+                "researcherSearch"
+            ).value =
+                search;
+
+
+            filterResearchers();
+
+        }
+
+
+        /* =====================================================
+           VIEW RESEARCHER
+        ===================================================== */
+
+        function viewResearcher(
+            researcherId
+        ) {
+
+            const researcher =
+                researchers.find(
+                    r =>
+                        r.id === researcherId
+                );
+
+
+            if (!researcher) {
+                return;
+            }
+
+
+            document.getElementById(
+                "modalId"
+            ).textContent =
+                researcher.id;
+
+
+            document.getElementById(
+                "modalName"
+            ).textContent =
+                researcher.full_name ||
+                "Not provided";
+
+
+            document.getElementById(
+                "modalEmail"
+            ).textContent =
+                researcher.email ||
+                "Not provided";
+
+
+            document.getElementById(
+                "modalArea"
+            ).textContent =
+                researcher.research_area ||
+                "Not provided";
+
+
+            document.getElementById(
+                "modalInstitution"
+            ).textContent =
+                researcher.institution_id !== null &&
+                researcher.institution_id !== undefined
+                    ? "Institution " +
+                      researcher.institution_id
+                    : "Not assigned";
+
+
+            document.getElementById(
+                "modalBiography"
+            ).textContent =
+                researcher.biography ||
+                "Not provided";
+
+
+            document.getElementById(
+                "modalProfile"
+            ).textContent =
+                researcher.profile_url ||
+                "Not provided";
+
+
+            document.getElementById(
+                "viewModal"
+            ).classList.add(
+                "show"
+            );
+
+        }
+
+
+        /* =====================================================
+           CLOSE MODAL
+        ===================================================== */
+
+        function closeModal() {
+
+            document.getElementById(
+                "viewModal"
+            ).classList.remove(
+                "show"
+            );
+
+        }
+
+
+        /* =====================================================
+           EDIT RESEARCHER
+        ===================================================== */
+
+        function editResearcher(
+            researcherId
+        ) {
+
+            /*
+             * Your existing edit page currently
+             * works with the logged-in researcher.
+             *
+             * Therefore we send the researcher ID
+             * in the URL for future support.
+             */
+
+            window.location.href =
+                "edit-researcher.html?id=" +
+                encodeURIComponent(
+                    researcherId
+                );
+
+        }
+
+
+        /* =====================================================
+           ADD RESEARCHER
+        ===================================================== */
+
+        function addResearcher() {
+
+            /*
+             * We will connect this to the actual
+             * researcher creation form.
+             */
+
+            window.location.href =
+                "add-researcher.html";
+
+        }
+
+
+        /* =====================================================
+           COMING SOON
+        ===================================================== */
+
+        function comingSoon(
+            event,
+            moduleName
+        ) {
+
+            event.preventDefault();
+
+            alert(
+                moduleName +
+                " module will be connected next."
+            );
+
+        }
+
+
+        /* =====================================================
+           LOGOUT
+        ===================================================== */
+
+        function logout() {
+
+            localStorage.removeItem(
+                "access_token"
+            );
+
+            window.location.href =
+                "login.html";
+
+        }
+
+
+        /* =====================================================
+           INITIALS
+        ===================================================== */
+
+        function getInitials(
+            name
+        ) {
+
+            if (!name) {
+                return "R";
+            }
+
+
+            const parts =
+                name
+                    .trim()
+                    .split(/\s+/);
+
+
+            if (parts.length === 1) {
+
+                return parts[0]
+                    .substring(0, 2)
+                    .toUpperCase();
+
+            }
+
+
+            return (
+                parts[0][0] +
+                parts[parts.length - 1][0]
+            ).toUpperCase();
+
+        }
+
+
+        /* =====================================================
+           HTML ESCAPE
+        ===================================================== */
+
+        function escapeHtml(
+            value
+        ) {
+
+            if (
+                value === null ||
+                value === undefined
+            ) {
+
+                return "";
+
+            }
+
+
+            return String(value)
+                .replace(
+                    /&/g,
+                    "&amp;"
+                )
+                .replace(
+                    /</g,
+                    "&lt;"
+                )
+                .replace(
+                    />/g,
+                    "&gt;"
+                )
+                .replace(
+                    /"/g,
+                    "&quot;"
+                )
+                .replace(
+                    /'/g,
+                    "&#039;"
+                );
+
+        }
+
+
+        /* =====================================================
+           CLOSE MODAL WHEN CLICKING OUTSIDE
+        ===================================================== */
+
+        document
+            .getElementById(
+                "viewModal"
+            )
+            .addEventListener(
+                "click",
+                function(event) {
+
+                    if (
+                        event.target ===
+                        this
+                    ) {
+
+                        closeModal();
+
+                    }
+
+                }
+            );
+
+
+        /* =====================================================
+           START
+        ===================================================== */
+
+        loadUser();
+        loadResearchers();
+
+    </script>
+
+</body>
+
+</html>

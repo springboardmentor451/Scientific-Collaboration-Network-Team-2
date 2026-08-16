@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SciCollab - Edit Researcher Profile</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #f4f7fb;
+            color: #222;
+        }
+
+        nav {
+            height: 70px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .logo {
+            font-size: 25px;
+            font-weight: bold;
+            color: #1f3c88;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-buttons button {
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .profile-btn {
+            background: #6c757d;
+        }
+
+        .logout-btn {
+            background: #1f3c88;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .page-title {
+            margin-bottom: 25px;
+        }
+
+        .page-title h1 {
+            color: #1f3c88;
+            margin-bottom: 8px;
+        }
+
+        .page-title p {
+            color: #666;
+        }
+
+        .form-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        textarea {
+            min-height: 130px;
+            resize: vertical;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #1f3c88;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 25px;
+        }
+
+        .save-btn,
+        .cancel-btn {
+            padding: 12px 22px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .save-btn {
+            background: #1f3c88;
+            color: white;
+        }
+
+        .cancel-btn {
+            background: #6c757d;
+            color: white;
+        }
+
+        .save-btn:hover {
+            background: #162d69;
+        }
+
+        .cancel-btn:hover {
+            background: #555;
+        }
+
+        #message {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 15px;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+
+        @media (max-width: 600px) {
+
+            nav {
+                padding: 0 20px;
+            }
+
+            .container {
+                margin-top: 25px;
+            }
+
+            .button-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+
+        <div class="logo">
+            SciCollab
+        </div>
+
+        <div class="nav-buttons">
+
+            <button class="profile-btn" onclick="goProfile()">
+                My Profile
+            </button>
+
+            <button class="logout-btn" onclick="logout()">
+                Logout
+            </button>
+
+        </div>
+
+    </nav>
+
+
+    <div class="container">
+
+        <div class="page-title">
+
+            <h1>
+                Edit Researcher Profile
+            </h1>
+
+            <p>
+                Update your research information and profile details.
+            </p>
+
+        </div>
+
+
+        <div class="form-card">
+
+            <form id="editForm">
+
+                <div class="form-group">
+
+                    <label for="institutionId">
+                        Institution ID
+                    </label>
+
+                    <input
+                        type="number"
+                        id="institutionId"
+                        placeholder="Enter institution ID"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="researchArea">
+                        Research Area
+                    </label>
+
+                    <input
+                        type="text"
+                        id="researchArea"
+                        placeholder="Enter your research area"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="biography">
+                        Biography
+                    </label>
+
+                    <textarea
+                        id="biography"
+                        placeholder="Tell us about your research interests..."
+                    ></textarea>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="profileUrl">
+                        Profile URL
+                    </label>
+
+                    <input
+                        type="url"
+                        id="profileUrl"
+                        placeholder="https://example.com/profile"
+                    >
+
+                </div>
+
+
+                <div class="button-row">
+
+                    <button
+                        type="submit"
+                        class="save-btn"
+                    >
+                        Save Changes
+                    </button>
+
+                    <button
+                        type="button"
+                        class="cancel-btn"
+                        onclick="goProfile()"
+                    >
+                        Cancel
+                    </button>
+
+                </div>
+
+            </form>
+
+
+            <p id="message"></p>
+
+        </div>
+
+    </div>
+
+
+    <script>
+
+        const editForm =
+            document.getElementById("editForm");
+
+        const message =
+            document.getElementById("message");
+
+
+        // Load existing researcher profile
+
+        async function loadProfile() {
+
+            const token =
+                localStorage.getItem("access_token");
+
+
+            if (!token) {
+
+                window.location.href =
+                    "login.html";
+
+                return;
+            }
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "http://127.0.0.1:8000/researchers/me",
+                        {
+                            method: "GET",
+
+                            headers: {
+                                "Authorization":
+                                    "Bearer " + token
+                            }
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    if (response.status === 401) {
+
+                        localStorage.removeItem(
+                            "access_token"
+                        );
+
+                        window.location.href =
+                            "login.html";
+
+                        return;
+                    }
+
+
+                    message.textContent =
+                        data.detail ||
+                        "Unable to load profile.";
+
+                    message.className =
+                        "error";
+
+                    return;
+                }
+
+
+                // Fill form with existing values
+
+                document.getElementById(
+                    "institutionId"
+                ).value =
+                    data.institution_id ?? "";
+
+
+                document.getElementById(
+                    "researchArea"
+                ).value =
+                    data.research_area ?? "";
+
+
+                document.getElementById(
+                    "biography"
+                ).value =
+                    data.biography ?? "";
+
+
+                document.getElementById(
+                    "profileUrl"
+                ).value =
+                    data.profile_url ?? "";
+
+            }
+
+            catch (error) {
+
+                console.error(error);
+
+                message.textContent =
+                    "Unable to connect to the backend.";
+
+                message.className =
+                    "error";
+            }
+
+        }
+
+
+        // Update researcher profile
+
+        editForm.addEventListener(
+            "submit",
+            async function(event) {
+
+                event.preventDefault();
+
+
+                const token =
+                    localStorage.getItem(
+                        "access_token"
+                    );
+
+
+                if (!token) {
+
+                    window.location.href =
+                        "login.html";
+
+                    return;
+                }
+
+
+                const institutionValue =
+                    document.getElementById(
+                        "institutionId"
+                    ).value;
+
+
+                const updatedProfile = {
+
+                    institution_id:
+                        institutionValue === ""
+                            ? null
+                            : Number(institutionValue),
+
+                    research_area:
+                        document.getElementById(
+                            "researchArea"
+                        ).value || null,
+
+                    biography:
+                        document.getElementById(
+                            "biography"
+                        ).value || null,
+
+                    profile_url:
+                        document.getElementById(
+                            "profileUrl"
+                        ).value || null
+                };
+
+
+                message.textContent =
+                    "Saving changes...";
+
+                message.className = "";
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            "http://127.0.0.1:8000/researchers/me",
+                            {
+                                method: "PUT",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+
+                                    "Authorization":
+                                        "Bearer " + token
+                                },
+
+                                body:
+                                    JSON.stringify(
+                                        updatedProfile
+                                    )
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        if (response.status === 401) {
+
+                            localStorage.removeItem(
+                                "access_token"
+                            );
+
+                            window.location.href =
+                                "login.html";
+
+                            return;
+                        }
+
+
+                        message.textContent =
+                            data.detail ||
+                            "Failed to update profile.";
+
+                        message.className =
+                            "error";
+
+                        return;
+                    }
+
+
+                    message.textContent =
+                        "Profile updated successfully!";
+
+                    message.className =
+                        "success";
+
+
+                    // Go back to profile after a short delay
+
+                    setTimeout(
+                        function() {
+
+                            window.location.href =
+                                "researcher.html";
+
+                        },
+                        1000
+                    );
+
+                }
+
+                catch (error) {
+
+                    console.error(
+                        "Update error:",
+                        error
+                    );
+
+                    message.textContent =
+                        "Unable to connect to the backend.";
+
+                    message.className =
+                        "error";
+                }
+
+            }
+        );
+
+
+        function goProfile() {
+
+            window.location.href =
+                "researcher.html";
+
+        }
+
+
+        function logout() {
+
+            localStorage.removeItem(
+                "access_token"
+            );
+
+            window.location.href =
+                "login.html";
+
+        }
+
+
+        // Load profile when page opens
+
+        loadProfile();
+
+    </script>
+
+</body>
+
+</html>

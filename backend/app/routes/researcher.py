@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from backend.app.models.users import User
 
 from backend.app.database.session import get_db
 from backend.app.models.researchers import Researcher
@@ -103,3 +104,36 @@ def update_my_researcher_profile(
     db.refresh(researcher)
 
     return researcher
+
+@router.get("/", response_model=list[ResearcherResponse])
+def get_all_researchers(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    researchers = (
+        db.query(Researcher)
+        .all()
+    )
+
+    result = []
+
+    for researcher in researchers:
+
+        user = (
+            db.query(User)
+            .filter(User.id == researcher.user_id)
+            .first()
+        )
+
+        result.append({
+            "id": researcher.id,
+            "user_id": researcher.user_id,
+            "full_name": user.full_name if user else None,
+            "email": user.email if user else None,
+            "institution_id": researcher.institution_id,
+            "research_area": researcher.research_area,
+            "biography": researcher.biography,
+            "profile_url": researcher.profile_url
+        })
+
+    return result
