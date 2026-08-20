@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Institutions - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Institutions Management{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fa-solid fa-plus"></i> Add Institution</span>
+        </div>
+        <form method="POST" action="{{ url_for('institutions_page') }}">
+            <div class="form-group">
+                <label for="name">Institution Name</label>
+                <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Stanford University" required>
+            </div>
+            <div class="form-group">
+                <label for="address">Address / Location</label>
+                <input type="text" id="address" name="address" class="form-control" placeholder="e.g. Stanford, CA, USA">
+            </div>
+            <div class="form-group">
+                <label for="type">Institution Type</label>
+                <select id="type" name="type" class="form-control">
+                    <option value="university">University</option>
+                    <option value="research_institute">Research Institute</option>
+                    <option value="enterprise">Enterprise</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                <i class="fa-solid fa-square-plus"></i> Register Institution
+            </button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fa-solid fa-building-columns"></i> Registered Institutions</span>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Address</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inst in institutions %}
+                    <tr>
+                        <td><code>#{{ inst.id }}</code></td>
+                        <td><strong>{{ inst.name }}</strong></td>
+                        <td>{{ inst.address or 'N/A' }}</td>
+                        <td><span class="badge badge-verified" style="text-transform: capitalize;">{{ inst.type or 'university' }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                            No registered institutions found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

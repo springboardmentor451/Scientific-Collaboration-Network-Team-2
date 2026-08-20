@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Research Projects - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Research Projects & Grants{% endblock %}
+
+{% block extra_css %}
+<style>
+    .project-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 24px;
+    }
+
+    @media (max-width: 992px) {
+        .project-layout { grid-template-columns: 1fr; }
+    }
+
+    .project-card {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .project-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="project-layout">
+    <!-- List of Projects -->
+    <div>
+        {% for proj in projects %}
+        <div class="project-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <span style="font-size: 17px; font-weight: 700; color: var(--text-main);">{{ proj.title }}</span>
+                <span class="badge" style="
+                    {% if proj.status == 'active' %}
+                        background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0;
+                    {% elif proj.status == 'completed' %}
+                        background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE;
+                    {% elif proj.status == 'proposed' %}
+                        background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A;
+                    {% else %}
+                        background: #F1F5F9; color: #475569; border: 1px solid var(--border-color);
+                    {% endif %}
+                    text-transform: capitalize;
+                ">{{ proj.status }}</span>
+            </div>
+            
+            <div style="font-size: 13px; color: var(--text-muted); display: flex; gap: 14px; flex-wrap: wrap;">
+                <span><i class="fa-solid fa-hand-holding-dollar" style="color: var(--primary);"></i> Funding: {{ proj.funding_source or 'Internal' }}</span>
+                <span><i class="fa-solid fa-calendar" style="color: var(--primary);"></i> Duration: {{ proj.start_date or 'N/A' }} to {{ proj.end_date or 'N/A' }}</span>
+            </div>
+
+            <p style="font-size: 13.5px; color: var(--text-muted); line-height: 1.5; margin-top: 4px;">
+                {{ proj.description or 'No project description summary logged.' }}
+            </p>
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 15px; font-weight: 700; color: var(--success);"><i class="fa-solid fa-circle-dollar-to-slot"></i> Budget Allocation: ${{ '{:,.2f}'.format(proj.funding_amount or 0) }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="card" style="text-align: center; padding: 50px;">
+            <i class="fa-solid fa-flask-vial" style="font-size: 44px; color: var(--text-muted); margin-bottom: 16px;"></i>
+            <p style="color: var(--text-muted);">No active project grants registered.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Create project panel -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-circle-plus"></i> Create Research Project</span>
+            </div>
+            
+            <form action="{{ url_for('projects') }}" method="POST">
+                <div class="form-group">
+                    <label for="title">Project Title *</label>
+                    <input type="text" id="title" name="title" class="form-control" placeholder="e.g. Dynamic Graph Modeling" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="3" class="form-control" placeholder="Project objectives and research goals..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="funding_source">Funding Source</label>
+                    <input type="text" id="funding_source" name="funding_source" class="form-control" placeholder="e.g. National Science Foundation">
+                </div>
+
+                <div class="form-group">
+                    <label for="funding_amount">Funding Amount ($)</label>
+                    <input type="number" step="0.01" id="funding_amount" name="funding_amount" class="form-control" placeholder="e.g. 250000.00">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label for="start_date">Start Date</label>
+                        <input type="date" id="start_date" name="start_date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date">End Date</label>
+                        <input type="date" id="end_date" name="end_date" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status" class="form-control">
+                        <option value="proposed">Proposed</option>
+                        <option value="active" selected>Active</option>
+                        <option value="completed">Completed</option>
+                        <option value="on_hold">On Hold</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 12px;"><i class="fa-solid fa-plus"></i> Register Project</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

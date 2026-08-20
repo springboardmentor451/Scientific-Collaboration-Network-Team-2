@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Help & Documentation - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block extra_css %}
+<style>
+    .help-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-top: 20px;
+    }
+    @media (max-width: 768px) {
+        .help-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .help-section {
+        margin-bottom: 25px;
+    }
+    .help-section p {
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        margin-bottom: 12px;
+    }
+    .help-section ul {
+        list-style: inside disc;
+        margin-left: 10px;
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<header>
+    <div>
+        <h1>Help & Documentation</h1>
+        <p style="color: var(--text-secondary); font-size: 14px;">User guides, security specifications, and system architectural references.</p>
+    </div>
+</header>
+
+<div class="help-grid">
+    <div class="glass-card">
+        <div class="section-title"><i class="fa-solid fa-graduation-cap"></i> Getting Started</div>
+        
+        <div class="help-section">
+            <h3>Researcher Flow</h3>
+            <p>
+                As a Researcher, your primary workflow involves submitting publications, linking your ORCID ID, joining research projects, and checking your co-authorship maps:
+            </p>
+            <ul>
+                <li>Submit a publication under the <strong>Publications</strong> tab. Set status as draft if you are still working on it.</li>
+                <li>Go to <strong>Network Graph</strong> to visually check which researchers you are connected to.</li>
+                <li>Click <strong>Edit Profile</strong> inside your user panel to add your research interests and technical skills.</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h3>Institution Admin</h3>
+            <p>
+                Institution admins can review department structures, track total publications and grants funding totals across departments, and register institutional partnerships.
+            </p>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <div class="section-title"><i class="fa-solid fa-shield-halved"></i> Role-Based Access (RBAC)</div>
+        
+        <div class="help-section">
+            <h3>Permissions Matrix</h3>
+            <p>
+                The platform implements a strict security policy using JWT access tokens. Key permission details:
+            </p>
+            <ul>
+                <li><strong>Researcher:</strong> CRUD own profile, publications, and conference participations. Can view others.</li>
+                <li><strong>Reviewer:</strong> Can view all publication logs (including drafts) and conference events.</li>
+                <li><strong>Institution Admin:</strong> CRUD departments and projects for their institution. View all statistics.</li>
+                <li><strong>System Admin:</strong> Full CRUD access across users, institutions, audit logs, and reports.</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h3>Security Compliance</h3>
+            <p>
+                All mutating endpoints (create, update, delete) automatically trigger a secure entry write inside the global audit logger database table.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,677 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Dashboard Analytics{% endblock %}
+
+{% block extra_css %}
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .profile-summary-card {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 28px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        position: relative;
+    }
+
+    .profile-summary-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .profile-identity {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .profile-avatar-large {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        font-weight: 700;
+        box-shadow: var(--shadow-md);
+        border: 3px solid #FFFFFF;
+    }
+
+    .profile-info h3 {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .profile-info p {
+        font-size: 14px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .profile-badges {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+    }
+
+    .profile-badges .badge {
+        font-size: 12px;
+        background: #F1F5F9;
+        color: #475569;
+        border: 1px solid var(--border-color);
+    }
+
+    .completion-container {
+        border-top: 1px solid var(--border-color);
+        padding-top: 20px;
+        margin-top: 10px;
+    }
+
+    .completion-bar-container {
+        width: 100%;
+        background: #E2E8F0;
+        border-radius: 20px;
+        height: 10px;
+        overflow: hidden;
+        margin-top: 8px;
+        position: relative;
+    }
+
+    .completion-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--accent));
+        border-radius: 20px;
+        transition: width 0.8s ease;
+    }
+
+    .quick-actions-bar {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 24px;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .metric-card {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .metric-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: var(--radius-md);
+        background: var(--primary-light);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+    }
+
+    .metric-icon.green { background: #ECFDF5; color: var(--success); }
+    .metric-icon.amber { background: #FFFBEB; color: var(--warning); }
+    .metric-icon.sky { background: #E0F2FE; color: var(--accent); }
+    .metric-icon.danger { background: #FEF2F2; color: var(--danger); }
+
+    .metric-details {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .metric-val {
+        font-size: 26px;
+        font-weight: 800;
+        color: var(--text-main);
+        line-height: 1.1;
+    }
+
+    .metric-label {
+        font-size: 13.5px;
+        color: var(--text-muted);
+        font-weight: 600;
+        margin-top: 4px;
+    }
+
+    .trend-indicator {
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 4px;
+        width: fit-content;
+    }
+    
+    .trend-up { background: #D1FAE5; color: #065F46; }
+    .trend-down { background: #FEE2E2; color: #991B1B; }
+
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    @media (max-width: 1024px) {
+        .dashboard-layout, .charts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 250px;
+        width: 100%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if view == 'researcher' %}
+    <!-- Researcher Dashboard Profile Summary Card -->
+    {% set r = data.get('researcher', {}) %}
+    {% set comp = data.get('completion_status', {}) %}
+    <div class="profile-summary-card">
+        <div class="profile-summary-header">
+            <div class="profile-identity">
+                <div class="profile-avatar-large">
+                    {{ (r.get('full_name') or session.get('user_email'))[0].upper() }}
+                </div>
+                <div class="profile-info">
+                    <h3>
+                        {{ r.get('full_name', 'Researcher Profile') }}
+                        {% if session.get('user_verified') %}
+                        <span class="badge badge-verified" title="Email Verified"><i class="fa-solid fa-circle-check"></i> Verified</span>
+                        {% else %}
+                        <span class="badge badge-pending" title="Email Unverified"><i class="fa-solid fa-clock"></i> Verification Pending</span>
+                        {% endif %}
+                    </h3>
+                    <p>
+                        <i class="fa-solid fa-graduation-cap"></i> {{ r.get('designation') or 'Academic Researcher' }}
+                        {% if r.get('institution') %} • {{ r.get('institution') }}{% endif %}
+                        {% if r.get('country') %} • <i class="fa-solid fa-location-dot"></i> {{ r.get('country') }}{% endif %}
+                    </p>
+                    <div class="profile-badges">
+                        {% if r.get('orcid_id') %}
+                        <span class="badge"><i class="fa-brands fa-orcid" style="color:#A6CE39;"></i> ORCID: {{ r.get('orcid_id') }}</span>
+                        {% endif %}
+                        {% if r.get('gender') and r.get('gender') != 'prefer_not_to_say' %}
+                        <span class="badge">Gender: {{ r.get('gender').replace('_', ' ').title() }}</span>
+                        {% endif %}
+                        {% if r.get('nationality') %}
+                        <span class="badge">Nationality: {{ r.get('nationality') }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <a href="{{ url_for('researcher_profile_edit') }}" class="btn btn-secondary"><i class="fa-solid fa-pen-to-square"></i> Edit Profile</a>
+                <a href="{{ url_for('reports_export') }}?format=pdf" class="btn btn-primary"><i class="fa-solid fa-download"></i> Download Summary</a>
+            </div>
+        </div>
+
+        <div class="completion-container">
+            <div style="display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 700; color: var(--text-main);">
+                <span>Profile Completion</span>
+                <span>{{ comp.get('completion_percentage', 60) }}%</span>
+            </div>
+            <div class="completion-bar-container">
+                <div class="completion-bar-fill" style="width: {{ comp.get('completion_percentage', 60) }}%;"></div>
+            </div>
+            {% if comp.get('missing_fields') %}
+            <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <strong><i class="fa-solid fa-circle-exclamation" style="color: var(--warning);"></i> Action Required:</strong> 
+                {% for f in comp.get('missing_fields') %}
+                <span style="background: #FFFBEB; border: 1px solid #FDE68A; color: #B45309; padding: 2px 8px; border-radius: 4px; font-size: 11.5px;">{{ f }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Actions Toolbar -->
+    <div class="quick-actions-bar">
+        <strong style="font-size: 13.5px; color: var(--text-main);"><i class="fa-solid fa-bolt"></i> Quick Actions:</strong>
+        <a href="{{ url_for('publications') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-plus"></i> Add Publication</a>
+        <a href="{{ url_for('projects') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-folder-plus"></i> Create Project</a>
+        <a href="{{ url_for('conferences') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-calendar-plus"></i> Register Conference</a>
+        <a href="{{ url_for('network') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-diagram-project"></i> View Collaborators</a>
+    </div>
+
+    <!-- Summary KPI Cards -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon"><i class="fa-solid fa-book-open"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('publications', []) | length }}</div>
+                <div class="metric-label">Publications</div>
+                <div class="trend-indicator trend-up"><i class="fa-solid fa-arrow-up"></i> +12%</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon green"><i class="fa-solid fa-flask"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('projects', []) | length }}</div>
+                <div class="metric-label">Active Projects</div>
+                <div class="trend-indicator trend-up"><i class="fa-solid fa-arrow-up"></i> +1.5x</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon sky"><i class="fa-solid fa-user-group"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('collaborators', []) | length }}</div>
+                <div class="metric-label">Co-Authors</div>
+                <div class="trend-indicator trend-up"><i class="fa-solid fa-arrow-up"></i> Dynamic</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon amber"><i class="fa-solid fa-quote-right"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('citation_summary', {}).get('total_citations', 0) }}</div>
+                <div class="metric-label">Citations Logged</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-grid">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Publications by Year</span></div>
+            <div class="chart-container">
+                <canvas id="pubYearChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><span class="card-title">Publications by Type</span></div>
+            <div class="chart-container">
+                <canvas id="pubTypeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics & Details Grid -->
+    <div class="dashboard-layout">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Publications</span>
+                <a href="{{ url_for('publications') }}" style="font-size: 13px; color: var(--primary); text-decoration: none; font-weight:600;">View All →</a>
+            </div>
+            {% for pub in data.get('publications', [])[:5] %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-color);">
+                <div>
+                    <div style="font-weight: 700; font-size: 14px;">{{ pub.title }}</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">{{ pub.venue or 'Academic Journal' }} • {{ pub.date or 'N/A' }}</div>
+                </div>
+                <span class="badge badge-verified" style="text-transform: capitalize;">{{ pub.status or 'Published' }}</span>
+            </div>
+            {% else %}
+            <div style="color: var(--text-muted); font-size: 14.5px; text-align: center; padding: 30px;">No publication records yet. Click "Add Publication" above.</div>
+            {% endfor %}
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-users"></i> Top Co-Authors</span>
+            </div>
+            {% for col in data.get('collaborators', [])[:5] %}
+            <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border-color);">
+                <div class="avatar" style="width: 36px; height: 36px; font-size: 14px;">{{ col.full_name[0].upper() }}</div>
+                <div>
+                    <div style="font-weight: 700; font-size: 13.5px;">{{ col.full_name }}</div>
+                    <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 1px;">{{ col.institution or 'Collaborator' }}</div>
+                </div>
+            </div>
+            {% else %}
+            <div style="color: var(--text-muted); font-size: 14.5px; text-align: center; padding: 30px;">No co-authors logged in network.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+{% elif view == 'admin' %}
+    <!-- Admin Dashboard View -->
+    <div class="quick-actions-bar">
+        <strong style="font-size: 13.5px; color: var(--text-main);"><i class="fa-solid fa-bolt"></i> Admin Quick Actions:</strong>
+        <a href="{{ url_for('researchers') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-user-plus"></i> Manage Researchers</a>
+        <a href="{{ url_for('institutions_page') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-building-columns"></i> Manage Institutions</a>
+        <a href="{{ url_for('users_page') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-users-gear"></i> System Accounts</a>
+        <a href="{{ url_for('audit_logs') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-shield"></i> View Audit Logs</a>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon"><i class="fa-solid fa-user-graduate"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('system_stats', {}).get('total_researchers', 0) }}</div>
+                <div class="metric-label">Researchers</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon green"><i class="fa-solid fa-book"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('system_stats', {}).get('total_publications', 0) }}</div>
+                <div class="metric-label">Publications</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon sky"><i class="fa-solid fa-flask"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('system_stats', {}).get('total_projects', 0) }}</div>
+                <div class="metric-label">Research Projects</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon amber"><i class="fa-solid fa-handshake"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('system_stats', {}).get('total_collaborations', 0) }}</div>
+                <div class="metric-label">Collaborations</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Charts Section -->
+    <div class="charts-grid">
+        <div class="card">
+            <div class="card-header"><span class="card-title">System Users by Role</span></div>
+            <div class="chart-container">
+                <canvas id="adminUserRoleChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><span class="card-title">Institution Publications Breakdown</span></div>
+            <div class="chart-container">
+                <canvas id="adminInstitutionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-layout">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-landmark"></i> Institution Breakdown</span>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Institution</th>
+                            <th>Researchers</th>
+                            <th>Publications</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inst in data.get('institution_analytics', []) %}
+                        <tr>
+                            <td><strong>{{ inst.name }}</strong></td>
+                            <td>{{ inst.researchers_count }}</td>
+                            <td>{{ inst.publications_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-shield"></i> User Status Summary</span>
+            </div>
+            {% for role, count in data.get('user_statistics', {}).items() %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-color);">
+                <span style="font-weight:700; text-transform:capitalize; font-size:13.5px;">{{ role.replace('_', ' ') }}</span>
+                <span class="badge badge-verified" style="background:#EFF6FF; color:#1E40AF; border:1px solid #BFDBFE;">{{ count }} accounts</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+{% else %}
+    <!-- Institution Admin Dashboard -->
+    <div class="quick-actions-bar">
+        <strong style="font-size: 13.5px; color: var(--text-main);"><i class="fa-solid fa-bolt"></i> Institution Quick Actions:</strong>
+        <a href="{{ url_for('researchers') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-user-plus"></i> View Researchers</a>
+        <a href="{{ url_for('departments_page') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-plus"></i> Add Department</a>
+        <a href="{{ url_for('projects') }}" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;"><i class="fa-solid fa-folder-plus"></i> Manage Projects</a>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon"><i class="fa-solid fa-building-columns"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('researchers_count', 0) }}</div>
+                <div class="metric-label">Affiliated Researchers</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon green"><i class="fa-solid fa-handshake"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('collaboration_stats', {}).get('internal_count', 0) }}</div>
+                <div class="metric-label">Internal Collaborations</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon sky"><i class="fa-solid fa-globe"></i></div>
+            <div class="metric-details">
+                <div class="metric-val">{{ data.get('collaboration_stats', {}).get('external_count', 0) }}</div>
+                <div class="metric-label">External Partnerships</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inst Admin Chart -->
+    <div class="charts-grid" style="grid-template-columns: 1fr;">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Collaboration Distribution</span></div>
+            <div class="chart-container" style="height: 300px;">
+                <canvas id="instCollabChart"></canvas>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Javascript Chart Building -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        {% if view == 'researcher' %}
+            // Calculate Publications by Year dynamically
+            const pubYears = {};
+            const pubTypes = {};
+            
+            const rawPubs = {{ data.get('publications', []) | tojson }};
+            rawPubs.forEach(p => {
+                // Parse year
+                if (p.date && p.date !== 'None') {
+                    const yr = p.date.substring(0, 4);
+                    pubYears[yr] = (pubYears[yr] || 0) + 1;
+                }
+                
+                // Parse Type
+                const t = p.type ? p.type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown';
+                pubTypes[t] = (pubTypes[t] || 0) + 1;
+            });
+            
+            // Render Year Chart
+            const yearLabels = Object.keys(pubYears).sort();
+            const yearData = yearLabels.map(y => pubYears[y]);
+            new Chart(document.getElementById('pubYearChart'), {
+                type: 'bar',
+                data: {
+                    labels: yearLabels,
+                    datasets: [{
+                        label: 'Publications count',
+                        data: yearData,
+                        backgroundColor: '#2563EB',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+
+            // Render Type Chart
+            new Chart(document.getElementById('pubTypeChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(pubTypes),
+                    datasets: [{
+                        data: Object.values(pubTypes),
+                        backgroundColor: ['#2563EB', '#10B981', '#0EA5E9', '#F59E0B', '#EF4444', '#8B5CF6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+            
+        {% elif view == 'admin' %}
+            // Render User Role Chart
+            const userRoles = {{ data.get('user_statistics', {}) | tojson }};
+            const roleLabels = Object.keys(userRoles).map(r => r.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()));
+            new Chart(document.getElementById('adminUserRoleChart'), {
+                type: 'pie',
+                data: {
+                    labels: roleLabels,
+                    datasets: [{
+                        data: Object.values(userRoles),
+                        backgroundColor: ['#2563EB', '#10B981', '#F59E0B', '#EF4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // Render Institution Breakdown Chart
+            const instData = {{ data.get('institution_analytics', []) | tojson }};
+            const instNames = instData.map(i => i.name);
+            const instResearchers = instData.map(i => i.researchers_count);
+            const instPublications = instData.map(i => i.publications_count);
+            
+            new Chart(document.getElementById('adminInstitutionChart'), {
+                type: 'bar',
+                data: {
+                    labels: instNames,
+                    datasets: [
+                        {
+                            label: 'Researchers',
+                            data: instResearchers,
+                            backgroundColor: '#0EA5E9',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Publications',
+                            data: instPublications,
+                            backgroundColor: '#2563EB',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            
+        {% else %}
+            // Render Institution Admin Collab Distribution Chart
+            const stats = {{ data.get('collaboration_stats', {}) | tojson }};
+            new Chart(document.getElementById('instCollabChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Internal Collaborations', 'External Partnerships'],
+                    datasets: [{
+                        data: [stats.internal_count || 0, stats.external_count || 0],
+                        backgroundColor: ['#10B981', '#2563EB']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        {% endif %}
+    });
+</script>
+{% endblock %}

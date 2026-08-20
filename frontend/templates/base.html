@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Scientific Collaboration Network Analyzer{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vis.js for Network Graph rendering -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #F8FAFC;
+            --sidebar-bg: #FFFFFF;
+            --header-bg: #FFFFFF;
+            --card-bg: #FFFFFF;
+            --border-color: #E2E8F0;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --primary: #2563EB;
+            --primary-hover: #1D4ED8;
+            --primary-light: #EFF6FF;
+            --accent: #0EA5E9;
+            --success: #10B981;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius-md: 10px;
+            --radius-lg: 14px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar styling */
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 30px;
+            padding: 0 8px;
+        }
+
+        .logo i {
+            font-size: 22px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .nav-links a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            background-color: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .nav-links a.active {
+            background-color: var(--primary);
+            color: #FFFFFF;
+        }
+
+        .nav-links a i {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Top Navigation Header */
+        .top-header {
+            height: 70px;
+            background: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 260px;
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-title-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: var(--text-main);
+            cursor: pointer;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .search-trigger {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: var(--text-muted);
+            font-size: 13px;
+            cursor: pointer;
+            width: 240px;
+            transition: border-color 0.2s;
+        }
+
+        .search-trigger:hover {
+            border-color: var(--primary);
+        }
+
+        .search-trigger kbd {
+            background: #E2E8F0;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            margin-left: auto;
+        }
+
+        /* Notification & User Dropdowns */
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: var(--text-muted);
+            cursor: pointer;
+            position: relative;
+            padding: 8px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .badge-dot {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: var(--danger);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            border-radius: 10px;
+            padding: 2px 5px;
+            line-height: 1;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: var(--radius-md);
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .user-menu:hover {
+            background: var(--bg-color);
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .user-info-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .role-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--primary);
+            background: var(--primary-light);
+            padding: 2px 8px;
+            border-radius: 10px;
+            text-transform: capitalize;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 10px;
+            background: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            width: 220px;
+            padding: 8px 0;
+            z-index: 200;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-menu a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 18px;
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .dropdown-menu a:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 6px 0;
+        }
+
+        /* Main Workspace Container */
+        .main-container {
+            margin-left: 260px;
+            margin-top: 70px;
+            flex-grow: 1;
+            padding: 30px;
+            width: calc(100% - 260px);
+            min-height: calc(100vh - 70px);
+        }
+
+        /* Cards & Utility Components */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Alerts and Flash notifications */
+        .flash-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .alert {
+            padding: 12px 20px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .alert-success { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+        .alert-danger { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
+        .alert-warning { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Buttons & Controls */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 18px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #F1F5F9;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #E2E8F0;
+        }
+
+        .btn-danger {
+            background-color: #FEE2E2;
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background-color: #FCA5A5;
+        }
+
+        /* Form styling */
+        .form-group {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .form-control, select, textarea {
+            background: #FFFFFF;
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            color: var(--text-main);
+            font-size: 14px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .form-control:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        /* Tables styling */
+        .table-responsive {
+            overflow-x: auto;
+            width: 100%;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #F8FAFC;
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        tr:hover td {
+            background-color: #F8FAFC;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-verified { background-color: #D1FAE5; color: #065F46; }
+        .badge-pending { background-color: #FEF3C7; color: #92400E; }
+
+        /* Global Search Modal Overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 300;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 100px;
+        }
+
+        .search-modal.show {
+            display: flex;
+        }
+
+        .search-modal-content {
+            background: #FFFFFF;
+            width: 100%;
+            max-width: 650px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .search-input-header {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 12px;
+        }
+
+        .search-input-header i {
+            color: var(--primary);
+            font-size: 18px;
+        }
+
+        .search-input-header input {
+            border: none;
+            outline: none;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        .search-results-box {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .search-result-group {
+            margin-bottom: 15px;
+        }
+
+        .search-result-group h5 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .search-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            color: var(--text-main);
+            transition: background 0.2s;
+        }
+
+        .search-item:hover {
+            background: var(--primary-light);
+        }
+
+        .search-item-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .search-item-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar { width: 220px; }
+            .top-header { left: 220px; }
+            .main-container { margin-left: 220px; width: calc(100% - 220px); }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            .top-header {
+                left: 0;
+            }
+            .mobile-toggle {
+                display: block;
+            }
+            .main-container {
+                margin-left: 0;
+                width: 100%;
+                padding: 15px;
+            }
+            .search-trigger {
+                width: 160px;
+            }
+        }
+
+        /* SaaS UI Additions */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast-box {
+            background: #FFFFFF;
+            border-left: 4px solid var(--primary);
+            box-shadow: var(--shadow-lg);
+            padding: 14px 20px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+            color: var(--text-main);
+            font-size: 13.5px;
+            font-weight: 500;
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .toast-box.success { border-left-color: var(--success); }
+        .toast-box.danger { border-left-color: var(--danger); }
+        .toast-box.warning { border-left-color: var(--warning); }
+
+        @keyframes slideIn {
+            from { transform: translateX(120%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .skeleton-row {
+            height: 20px;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #E2E8F0 25%, #F1F5F9 50%, #E2E8F0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .tab-menu {
+            display: flex;
+            gap: 4px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .tab-item {
+            padding: 10px 18px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .tab-item:hover {
+            color: var(--primary);
+        }
+
+        .tab-item.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .upload-dropzone {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 36px;
+            text-align: center;
+            background: #FAFBFC;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-dropzone:hover, .upload-dropzone.dragover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .upload-dropzone i {
+            font-size: 28px;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .tooltip-trigger {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip-content {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0F172A;
+            color: #FFFFFF;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 10;
+            margin-bottom: 6px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .tooltip-trigger:hover .tooltip-content {
+            display: block;
+        }
+        
+        .form-section-header {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 20px 0 12px 0;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Scrollbar aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- Sidebar navigation -->
+    <div class="sidebar" id="sidebar">
+        <div class="logo">
+            <i class="fa-solid fa-atom"></i>
+            <span>SCNA Analyzer</span>
+        </div>
+        
+        <ul class="nav-links">
+            <li>
+                <a href="{{ url_for('dashboard') }}" class="{% if request.path == '/dashboard' %}active{% endif %}">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+
+            {% if current_role == 'system_admin' %}
+            <li>
+                <a href="{{ url_for('users_page') }}" class="{% if request.path == '/users' %}active{% endif %}">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>Users</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('institutions_page') }}" class="{% if request.path == '/institutions' %}active{% endif %}">
+                    <i class="fa-solid fa-building-columns"></i>
+                    <span>Institutions</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('researchers') }}" class="{% if request.path == '/researchers' %}active{% endif %}">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <span>Researchers</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('reports') }}" class="{% if request.path == '/reports' %}active{% endif %}">
+                    <i class="fa-solid fa-file-contract"></i>
+                    <span>System Reports</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('audit_logs') }}" class="{% if request.path == '/audit-logs' %}active{% endif %}">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span>Audit Logs</span>
+                </a>
+            </li>
+
+            {% elif current_role == 'institution_admin' %}
+            <li>
+                <a href="{{ url_for('researchers') }}" class="{% if request.path == '/researchers' %}active{% endif %}">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Researchers</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('departments_page') }}" class="{% if request.path == '/departments' %}active{% endif %}">
+                    <i class="fa-solid fa-sitemap"></i>
+                    <span>Departments</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('publications') }}" class="{% if request.path == '/publications' %}active{% endif %}">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>Publications</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('projects') }}" class="{% if request.path == '/projects' %}active{% endif %}">
+                    <i class="fa-solid fa-flask-vial"></i>
+                    <span>Projects</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('network') }}" class="{% if request.path == '/network' %}active{% endif %}">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                    <span>Collaborations</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('conferences') }}" class="{% if request.path == '/conferences' %}active{% endif %}">
+                    <i class="fa-solid fa-landmark"></i>
+                    <span>Conferences</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('reports') }}" class="{% if request.path == '/reports' %}active{% endif %}">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span>Reports</span>
+                </a>
+            </li>
+
+            {% elif current_role == 'reviewer' %}
+            <li>
+                <a href="{{ url_for('publications') }}" class="{% if request.path == '/publications' %}active{% endif %}">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>Publications</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('assigned_reviews_page') }}" class="{% if request.path == '/assigned-reviews' %}active{% endif %}">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                    <span>Assigned Reviews</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('conferences') }}" class="{% if request.path == '/conferences' %}active{% endif %}">
+                    <i class="fa-solid fa-landmark"></i>
+                    <span>Conferences</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('researcher_profile_edit') }}" class="{% if request.path == '/researchers/edit' %}active{% endif %}">
+                    <i class="fa-solid fa-id-card"></i>
+                    <span>Profile</span>
+                </a>
+            </li>
+
+            {% else %}
+            <!-- Researcher Role default -->
+            <li>
+                <a href="{{ url_for('researcher_profile_edit') }}" class="{% if request.path == '/researchers/edit' %}active{% endif %}">
+                    <i class="fa-solid fa-id-card"></i>
+                    <span>My Profile</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('publications') }}" class="{% if request.path == '/publications' %}active{% endif %}">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>My Publications</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('projects') }}" class="{% if request.path == '/projects' %}active{% endif %}">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>My Projects</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('conferences') }}" class="{% if request.path == '/conferences' %}active{% endif %}">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span>My Conferences</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('network') }}" class="{% if request.path == '/network' %}active{% endif %}">
+                    <i class="fa-solid fa-diagram-project"></i>
+                    <span>My Collaborators</span>
+                </a>
+            </li>
+            {% endif %}
+
+            <li>
+                <a href="{{ url_for('settings_page') }}" class="{% if request.path == '/settings' %}active{% endif %}">
+                    <i class="fa-solid fa-gear"></i>
+                    <span>Settings</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('help_page') }}" class="{% if request.path == '/help' %}active{% endif %}">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span>Help & Docs</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="width: 100%; color: var(--danger);">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span>Log Out</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Top Header Navigation -->
+    <div class="top-header">
+        <div class="header-title-section">
+            <button class="mobile-toggle" onclick="toggleSidebar()">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2 class="header-title">{% block page_title %}Dashboard{% endblock %}</h2>
+        </div>
+
+        <div class="header-actions">
+            <!-- Global Search Trigger -->
+            <div class="search-trigger" onclick="openSearchModal()">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>Search platform...</span>
+                <kbd>Ctrl+K</kbd>
+            </div>
+
+            {% if logged_in %}
+            <!-- Notifications Icon -->
+            <button class="icon-btn" onclick="toggleNotificationDropdown()">
+                <i class="fa-regular fa-bell"></i>
+                <span class="badge-dot" id="unread-count-badge" style="display: none;">0</span>
+            </button>
+
+            <!-- User Profile Menu Dropdown -->
+            <div class="user-menu" onclick="toggleUserDropdown(event)">
+                <div class="avatar">{{ (current_user_email or 'U')[0].upper() }}</div>
+                <div class="user-info-text">
+                    <span class="user-name">{{ current_user_email.split('@')[0] if current_user_email else 'User' }}</span>
+                    <span class="role-badge">{{ current_role or 'Researcher' }}</span>
+                </div>
+                <i class="fa-solid fa-chevron-down" style="font-size: 12px; color: var(--text-muted);"></i>
+
+                <div class="dropdown-menu" id="user-dropdown">
+                    <a href="{{ url_for('researcher_profile_edit') }}"><i class="fa-solid fa-user-pen"></i> Edit Profile</a>
+                    <a href="{{ url_for('settings_page') }}"><i class="fa-solid fa-user-shield"></i> Account & Security</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="{{ url_for('logout') }}" style="color: var(--danger);"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log Out</a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Workspace Container -->
+    <div class="main-container">
+        <!-- Flash notifications -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                  <i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'danger' %}fa-circle-xmark{% else %}fa-circle-exclamation{% endif %}"></i>
+                  <span>{{ message }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Search Modal -->
+    <div class="search-modal" id="search-modal" onclick="closeSearchModal(event)">
+        <div class="search-modal-content" onclick="event.stopPropagation()">
+            <div class="search-input-header">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="global-search-input" placeholder="Search researchers, papers, projects, institutions..." onkeyup="performGlobalSearch(this.value)">
+                <button style="border: none; background: none; cursor: pointer; color: var(--text-muted);" onclick="closeSearchModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="search-results-box" id="search-results">
+                <div style="text-align: center; color: var(--text-muted); padding: 30px;">Type at least 2 characters to search...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('mobile-open');
+        }
+
+        function toggleUserDropdown(e) {
+            e.stopPropagation();
+            document.getElementById('user-dropdown').classList.toggle('show');
+        }
+
+        document.addEventListener('click', function() {
+            var drop = document.getElementById('user-dropdown');
+            if (drop) drop.classList.remove('show');
+        });
+
+        function openSearchModal() {
+            document.getElementById('search-modal').classList.add('show');
+            document.getElementById('global-search-input').focus();
+        }
+
+        function closeSearchModal(e) {
+            if (!e || e.target.id === 'search-modal') {
+                document.getElementById('search-modal').classList.remove('show');
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                openSearchModal();
+            }
+            if (e.key === 'Escape') {
+                closeSearchModal();
+            }
+        });
+
+        let searchTimeout = null;
+        function performGlobalSearch(val) {
+            clearTimeout(searchTimeout);
+            if (!val || val.trim().length < 2) {
+                document.getElementById('search-results').innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">Type at least 2 characters...</div>';
+                return;
+            }
+            searchTimeout = setTimeout(() => {
+                fetch('/api/search?q=' + encodeURIComponent(val.trim()))
+                    .then(res => res.json())
+                    .then(data => {
+                        let html = '';
+                        let res = data.results || {};
+                        let categories = ['researchers', 'publications', 'projects', 'institutions', 'conferences'];
+                        let count = 0;
+                        categories.forEach(cat => {
+                            let items = res[cat] || [];
+                            if (items.length > 0) {
+                                count += items.length;
+                                html += `<div class="search-result-group"><h5>${cat}</h5>`;
+                                items.forEach(item => {
+                                    html += `
+                                        <a href="${item.url}" class="search-item">
+                                            <div>
+                                                <div class="search-item-title">${item.title}</div>
+                                                <div class="search-item-sub">${item.subtitle}</div>
+                                            </div>
+                                            <i class="fa-solid fa-chevron-right" style="font-size: 12px; color: var(--text-muted);"></i>
+                                        </a>
+                                    `;
+                                });
+                                html += `</div>`;
+                            }
+                        });
+                        if (count === 0) {
+                            html = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No matching results found.</div>';
+                        }
+                        document.getElementById('search-results').innerHTML = html;
+                    });
+            }, 250);
+        }
+
+        // Fetch unread notifications count
+        {% if logged_in %}
+        fetch('/api/notifications/unread-count')
+            .then(res => res.json())
+            .then(data => {
+                if (data.unread_count > 0) {
+                    let badge = document.getElementById('unread-count-badge');
+                    badge.innerText = data.unread_count;
+                    badge.style.display = 'inline-block';
+                }
+            }).catch(() => {});
+        {% endif %}
+
+        // Global Toast Notification Helper
+        function showToast(message, category = 'success') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'toast-container';
+                container.id = 'toast-container';
+                document.body.appendChild(container);
+            }
+            let box = document.createElement('div');
+            box.className = `toast-box ${category}`;
+            
+            let icon = 'fa-circle-check';
+            if (category === 'danger') icon = 'fa-circle-xmark';
+            else if (category === 'warning') icon = 'fa-circle-exclamation';
+            
+            box.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+            container.appendChild(box);
+            
+            setTimeout(() => {
+                box.style.opacity = '0';
+                box.style.transform = 'translateX(100%)';
+                box.style.transition = 'all 0.3s ease';
+                setTimeout(() => box.remove(), 300);
+            }, 4000);
+        }
+    </script>
+    <div id="toast-container" class="toast-container"></div>
+</body>
+</html>

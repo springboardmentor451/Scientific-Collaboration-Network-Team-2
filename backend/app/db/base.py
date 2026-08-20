@@ -1,0 +1,16 @@
+from backend.app.db.base_class import Base  # noqa
+from backend.app.models.users import User  # noqa
+from backend.app.models.institutions import Institution  # noqa
+from backend.app.models.departments import Department  # noqa
+from backend.app.models.researchers import Researcher  # noqa
+from backend.app.models.publications import Publication  # noqa
+from backend.app.models.publication_authors import PublicationAuthor  # noqa
+from backend.app.models.projects import Project  # noqa
+from backend.app.models.project_assignments import ProjectAssignment  # noqa
+from backend.app.models.collaborations import Collaboration  # noqa
+from backend.app.models.conferences import Conference  # noqa
+from backend.app.models.conference_participation import ConferenceParticipation  # noqa
+from backend.app.models.citations import Citation  # noqa
+from backend.app.models.references import Reference  # noqa
+from backend.app.models.audit_logs import AuditLog  # noqa
+from backend.app.models.notifications import Notification  # noqa

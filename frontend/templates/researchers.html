@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Researcher Directory - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Researcher Directory{% endblock %}
+
+{% block extra_css %}
+<style>
+    .researcher-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 20px;
+    }
+
+    .researcher-card {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .researcher-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .researcher-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .researcher-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        color: white;
+        font-weight: 700;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .res-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+
+    .res-orcid {
+        font-size: 12px;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        text-decoration: none;
+    }
+
+    .tag-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .pill {
+        background: #F1F5F9;
+        color: var(--text-main);
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+
+    .pill.interest {
+        background: var(--primary-light);
+        color: var(--primary);
+    }
+
+    .filter-bar {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        margin-bottom: 24px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Search & Filter Controls -->
+<div class="filter-bar">
+    <div style="flex-grow: 1; position: relative;">
+        <input type="text" id="res-filter-search" class="form-control" placeholder="Search by name, interests, skills..." onkeyup="filterResearchers()">
+    </div>
+    <select id="res-filter-gender" class="form-control" style="width: auto;" onchange="filterResearchers()">
+        <option value="">All Genders</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="non_binary">Non-binary</option>
+    </select>
+    <button class="btn btn-secondary" onclick="resetResFilters()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+</div>
+
+<div class="researcher-grid" id="researchers-container">
+    {% for res in researchers %}
+    <div class="researcher-card" data-name="{{ res.full_name | lower }}" data-gender="{{ res.gender or '' }}" data-interests="{{ (res.research_interests or []) | join(' ') | lower }}" data-skills="{{ (res.skills or []) | join(' ') | lower }}">
+        <div class="researcher-header">
+            <div class="researcher-avatar">
+                {{ res.full_name[0] | upper }}
+            </div>
+            <div>
+                <a href="{{ url_for('researcher_detail', id=res.id) }}" class="res-name" style="text-decoration: none;">{{ res.full_name }}</a>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    {{ res.designation or 'Researcher' }}
+                    {% if res.country %} • {{ res.country }}{% endif %}
+                </div>
+                {% if res.orcid_id %}
+                <a href="https://orcid.org/{{ res.orcid_id }}" target="_blank" class="res-orcid" style="margin-top: 4px;">
+                    <i class="fa-brands fa-orcid" style="color: #A6CE39;"></i> {{ res.orcid_id }}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; flex-grow: 1;">
+            {{ res.bio or 'No biography provided yet.' }}
+        </p>
+
+        {% if res.research_interests %}
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 6px;">Interests</div>
+            <div class="tag-container">
+                {% for interest in res.research_interests %}
+                <span class="pill interest">{{ interest }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if res.skills %}
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 6px;">Skills</div>
+            <div class="tag-container">
+                {% for skill in res.skills %}
+                <span class="pill">{{ skill }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 8px;">
+            <a href="{{ url_for('researcher_detail', id=res.id) }}" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;"><i class="fa-solid fa-eye"></i> View Profile</a>
+            {% if current_role in ['system_admin', 'institution_admin'] %}
+            <form action="{{ url_for('delete_researcher', id=res.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this researcher profile?');">
+                <button type="submit" class="btn btn-danger" style="font-size: 12px; padding: 6px 12px;">
+                    <i class="fa-solid fa-trash-can"></i> Delete
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
+        <i class="fa-solid fa-users-slash" style="font-size: 40px; color: var(--text-muted); margin-bottom: 15px;"></i>
+        <p>No researcher profiles found in the system.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    function filterResearchers() {
+        let q = document.getElementById('res-filter-search').value.toLowerCase().trim();
+        let g = document.getElementById('res-filter-gender').value.toLowerCase();
+        let cards = document.querySelectorAll('.researcher-card');
+
+        cards.forEach(card => {
+            let name = card.getAttribute('data-name') || '';
+            let gender = card.getAttribute('data-gender') || '';
+            let interests = card.getAttribute('data-interests') || '';
+            let skills = card.getAttribute('data-skills') || '';
+
+            let matchQuery = !q || name.includes(q) || interests.includes(q) || skills.includes(q);
+            let matchGender = !g || gender === g;
+
+            if (matchQuery && matchGender) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    function resetResFilters() {
+        document.getElementById('res-filter-search').value = '';
+        document.getElementById('res-filter-gender').value = '';
+        filterResearchers();
+    }
+</script>
+{% endblock %}

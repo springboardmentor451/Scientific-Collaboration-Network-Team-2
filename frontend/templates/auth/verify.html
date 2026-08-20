@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - Scientific Collaboration Network Analyzer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #F8FAFC;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --primary: #2563EB;
+            --primary-hover: #1D4ED8;
+            --card-bg: #FFFFFF;
+            --border-color: #E2E8F0;
+            --danger: #EF4444;
+            --success: #10B981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-image: radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.04) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.04) 0%, transparent 40%);
+        }
+
+        .verify-container {
+            width: 100%;
+            max-width: 460px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            text-align: center;
+        }
+
+        .icon-circle {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(37, 99, 235, 0.08);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 24px auto;
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text-main);
+        }
+
+        p {
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 14.5px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            border: none;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+
+        .btn-primary:disabled {
+            background: #E2E8F0;
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #F1F5F9;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #E2E8F0;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-success {
+            background-color: #ECFDF5;
+            color: #047857;
+            border: 1px solid #A7F3D0;
+        }
+
+        .alert-danger {
+            background-color: #FEF2F2;
+            color: var(--danger);
+            border: 1px solid #FECACA;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="verify-container">
+        <div class="icon-circle">
+            <i class="fa-solid fa-envelope-open-text"></i>
+        </div>
+        <h2>Verify Your Email</h2>
+        <p>
+            We sent a verification link to <strong>{{ email or 'your registered email address' }}</strong>.<br>
+            Please click on the link in that email to complete your registration and activate your account.
+        </p>
+
+        <!-- Dynamic Success/Error Banners -->
+        <div id="resend-msg" style="display: none;" class="alert alert-success">
+            <i class="fa-solid fa-circle-check"></i>
+            <span id="resend-msg-text">Verification link sent successfully!</span>
+        </div>
+        <div id="resend-err" style="display: none;" class="alert alert-danger">
+            <i class="fa-solid fa-circle-xmark"></i>
+            <span id="resend-err-text">Failed to resend verification.</span>
+        </div>
+
+        <button onclick="resendVerificationLink()" id="resend-btn" class="btn btn-primary">
+            <i class="fa-solid fa-paper-plane"></i> Resend Verification Email
+        </button>
+        
+        <a href="{{ url_for('logout') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout & Back to Login
+        </a>
+    </div>
+
+    <script>
+        let countdownTimer = null;
+
+        function startCountdown(seconds) {
+            let btn = document.getElementById('resend-btn');
+            btn.disabled = true;
+            
+            let timeLeft = seconds;
+            btn.innerHTML = `<i class="fa-solid fa-clock"></i> Resend in ${timeLeft}s`;
+            
+            clearInterval(countdownTimer);
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Resend Verification Email';
+                } else {
+                    btn.innerHTML = `<i class="fa-solid fa-clock"></i> Resend in ${timeLeft}s`;
+                }
+            }, 1000);
+        }
+
+        function resendVerificationLink() {
+            let btn = document.getElementById('resend-btn');
+            let successMsg = document.getElementById('resend-msg');
+            let errorMsg = document.getElementById('resend-err');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            
+            let formData = new FormData();
+            formData.append('email', '{{ email }}');
+
+            fetch('/api/resend-verification', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(errData => { throw new Error(errData.message || 'Rate limit or server error'); });
+                }
+                return res.json();
+            })
+            .then(data => {
+                successMsg.style.display = 'flex';
+                document.getElementById('resend-msg-text').innerText = data.message || "Verification link sent!";
+                startCountdown(60); // Strict 60s rate limit countdown
+            })
+            .catch(err => {
+                errorMsg.style.display = 'flex';
+                document.getElementById('resend-err-text').innerText = err.message;
+                // If it is a rate limit error, lock the button
+                if (err.message.includes('60 seconds')) {
+                    startCountdown(45); // Start partial lock
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Resend Verification Email';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

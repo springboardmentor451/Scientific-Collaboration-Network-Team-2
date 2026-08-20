@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block extra_css %}
+<style>
+    .reports-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 24px;
+    }
+
+    @media (max-width: 992px) {
+        .reports-layout { grid-template-columns: 1fr; }
+    }
+
+    .report-card {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .report-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .report-icon {
+        font-size: 32px;
+        color: var(--primary);
+        margin-bottom: 12px;
+    }
+    
+    .report-icon.pdf { color: var(--danger); }
+    .report-icon.xlsx { color: var(--success); }
+
+    .scope-box {
+        background: #F8FAFC;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        margin-top: 16px;
+    }
+
+    .scope-metric {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13.5px;
+        margin-bottom: 8px;
+        color: var(--text-main);
+    }
+    .scope-metric:last-child { margin-bottom: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reports-layout">
+    <!-- Left Column: Export Actions -->
+    <div>
+        <div class="report-card">
+            <div style="display: flex; gap: 16px; align-items: flex-start;">
+                <div class="report-icon pdf"><i class="fa-solid fa-file-pdf"></i></div>
+                <div style="flex-grow: 1;">
+                    <h3 style="font-size: 16.5px; font-weight: 700; color: var(--text-main);">Summary PDF Report Dashboard</h3>
+                    <p style="font-size: 13.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.5;">
+                        Generate a professional, publication-ready PDF containing research profile statistics, publication summaries, projects status, and collaboration network maps.
+                    </p>
+                    <a href="/reports/export?format=pdf" id="export-pdf-btn" class="btn btn-primary" style="margin-top: 16px; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-download"></i> Generate PDF Report
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-card">
+            <div style="display: flex; gap: 16px; align-items: flex-start;">
+                <div class="report-icon xlsx"><i class="fa-solid fa-file-excel"></i></div>
+                <div style="flex-grow: 1;">
+                    <h3 style="font-size: 16.5px; font-weight: 700; color: var(--text-main);">Multi-Sheet Excel Spreadsheet</h3>
+                    <p style="font-size: 13.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.5;">
+                        Export raw records of Researchers, Publications, Projects, and Collaborations into separate worksheets inside a single Microsoft Excel (.xlsx) spreadsheet package.
+                    </p>
+                    <a href="/reports/export?format=xlsx" id="export-xlsx-btn" class="btn btn-primary" style="margin-top: 16px; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-download"></i> Download Excel (.xlsx)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Filter Filters and Scope Estimator -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-filter"></i> Report Scope Filters</span>
+            </div>
+
+            <div class="form-group">
+                <label for="institution_id">Filter by Institution</label>
+                <select id="institution_id" name="institution_id" class="form-control" onchange="updateScopeEstimation()">
+                    <option value="">All Affiliations</option>
+                    {% for inst in institutions %}
+                    <option value="{{ inst.id }}">{{ inst.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="start_date">Start Date Range</label>
+                <input type="date" id="start_date" name="start_date" class="form-control" onchange="updateScopeEstimation()">
+            </div>
+
+            <div class="form-group">
+                <label for="end_date">End Date Range</label>
+                <input type="date" id="end_date" name="end_date" class="form-control" onchange="updateScopeEstimation()">
+            </div>
+
+            <!-- Real-time Scope Estimator -->
+            <div class="scope-box">
+                <h4 style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 12px;">
+                    Estimated Report Scope
+                </h4>
+                <div class="scope-metric">
+                    <span>Affiliated Researchers:</span>
+                    <strong id="scope-researchers">0</strong>
+                </div>
+                <div class="scope-metric">
+                    <span>Publications Match:</span>
+                    <strong id="scope-publications">0</strong>
+                </div>
+                <div class="scope-metric">
+                    <span>Active Projects Match:</span>
+                    <strong id="scope-projects">0</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateScopeEstimation() {
+        let inst = document.getElementById('institution_id').value;
+        let start = document.getElementById('start_date').value;
+        let end = document.getElementById('end_date').value;
+
+        // Build query string
+        let queryParams = [];
+        if (inst) queryParams.push(`institution_id=${inst}`);
+        if (start) queryParams.push(`start_date=${start}`);
+        if (end) queryParams.push(`end_date=${end}`);
+        
+        let qStr = queryParams.length ? '&' + queryParams.join('&') : '';
+
+        // Update Button Links
+        document.getElementById('export-pdf-btn').href = `/reports/export?format=pdf${qStr}`;
+        document.getElementById('export-xlsx-btn').href = `/reports/export?format=xlsx${qStr}`;
+
+        // Retrieve counts to estimate scope (non-mock data)
+        document.getElementById('scope-researchers').innerText = '...';
+        document.getElementById('scope-publications').innerText = '...';
+        document.getElementById('scope-projects').innerText = '...';
+
+        // 1. Fetch researchers count
+        let resUrl = '/api/search?q=';
+        fetch(resUrl)
+            .then(res => res.json())
+            .then(data => {
+                let researchers = data.researchers || [];
+                let pubs = data.publications || [];
+                let projs = data.projects || [];
+                
+                // Filter client side based on parameters for accurate matching count
+                if (inst) {
+                    researchers = researchers.filter(r => r.institution_id == inst);
+                }
+                
+                if (start) {
+                    let startDate = new Date(start);
+                    pubs = pubs.filter(p => p.publication_date && new Date(p.publication_date) >= startDate);
+                    projs = projs.filter(pr => pr.start_date && new Date(pr.start_date) >= startDate);
+                }
+                if (end) {
+                    let endDate = new Date(end);
+                    pubs = pubs.filter(p => p.publication_date && new Date(p.publication_date) <= endDate);
+                    projs = projs.filter(pr => pr.end_date && new Date(pr.end_date) <= endDate);
+                }
+
+                document.getElementById('scope-researchers').innerText = researchers.length;
+                document.getElementById('scope-publications').innerText = pubs.length;
+                document.getElementById('scope-projects').innerText = projs.length;
+            })
+            .catch(() => {
+                document.getElementById('scope-researchers').innerText = 'Error';
+                document.getElementById('scope-publications').innerText = 'Error';
+                document.getElementById('scope-projects').innerText = 'Error';
+            });
+    }
+
+    // Trigger initial scope estimation count on page load
+    document.addEventListener("DOMContentLoaded", function() {
+        updateScopeEstimation();
+    });
+</script>
+{% endblock %}

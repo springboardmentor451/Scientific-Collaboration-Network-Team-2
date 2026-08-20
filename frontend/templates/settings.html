@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Account Settings - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Settings & Preferences{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    @media (max-width: 768px) {
+        .settings-layout { grid-template-columns: 1fr; }
+    }
+
+    .settings-tabs {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .settings-tab-btn {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: var(--radius-md);
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: none;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.2s;
+    }
+
+    .settings-tab-btn:hover {
+        background: var(--bg-color);
+        color: var(--text-main);
+    }
+
+    .settings-tab-btn.active {
+        background: var(--primary-light);
+        color: var(--primary);
+    }
+    
+    .settings-content-pane {
+        display: none;
+    }
+    
+    .settings-content-pane.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-layout">
+    <!-- Left Navigation Tabs -->
+    <div class="settings-tabs">
+        <button class="settings-tab-btn active" onclick="switchSettingsTab('account')">
+            <i class="fa-solid fa-circle-user"></i> Account Profile
+        </button>
+        <button class="settings-tab-btn" onclick="switchSettingsTab('security')">
+            <i class="fa-solid fa-key"></i> Password & Security
+        </button>
+        <button class="settings-tab-btn" onclick="switchSettingsTab('notifications')">
+            <i class="fa-solid fa-bell"></i> Notifications
+        </button>
+        <button class="settings-tab-btn" onclick="switchSettingsTab('privacy')">
+            <i class="fa-solid fa-shield-halved"></i> Privacy & Trust
+        </button>
+    </div>
+
+    <!-- Right Content Panes -->
+    <div>
+        <!-- Account Pane -->
+        <div class="card settings-content-pane active" id="pane-account">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-circle-user"></i> Account Information</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                <div>
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Registered Email</span>
+                    <div style="font-size: 14.5px; font-weight: 600; color: var(--text-main); margin-top: 4px;">{{ session.get('user_email', 'N/A') }}</div>
+                </div>
+                <div>
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Assigned System Role</span>
+                    <div style="font-size: 14.5px; font-weight: 600; color: var(--text-main); margin-top: 4px; text-transform: capitalize;">{{ session.get('user_role', 'researcher').replace('_', ' ') }}</div>
+                </div>
+                <div>
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Profile CV Setup</span>
+                    <div style="margin-top: 8px;">
+                        <a href="{{ url_for('researcher_profile_edit') }}" class="btn btn-secondary" style="font-size: 12.5px;"><i class="fa-solid fa-pen-to-square"></i> Modify Detailed CV Fields</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Pane -->
+        <div class="card settings-content-pane" id="pane-security">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-key"></i> Security Credentials</span>
+            </div>
+
+            <form action="{{ url_for('settings_page') }}" method="POST">
+                <input type="hidden" name="action" value="change_password">
+
+                <div class="form-group">
+                    <label for="current_password">Current Password *</label>
+                    <input type="password" id="current_password" name="current_password" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="new_password">New Password *</label>
+                    <input type="password" id="new_password" name="new_password" class="form-control" required>
+                    <small style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px; display: block;">Must contain: min 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character.</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="margin-top: 12px;"><i class="fa-solid fa-lock"></i> Update Password</button>
+            </form>
+        </div>
+
+        <!-- Notifications Pane -->
+        <div class="card settings-content-pane" id="pane-notifications">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-bell"></i> Notification Channels</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 14px;">In-App Activity Notifications</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Notify when publications get reviewed or projects get assigned</div>
+                    </div>
+                    <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 14px;">Weekly Academic Digests</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Email summaries of collaboration network statistics and logs</div>
+                    </div>
+                    <input type="checkbox" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                </div>
+            </div>
+        </div>
+
+        <!-- Privacy Pane -->
+        <div class="card settings-content-pane" id="pane-privacy">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-shield-halved"></i> Privacy & Trust Settings</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 14px;">Public Profile CV Access</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Allow unregistered users to view researcher profiles</div>
+                    </div>
+                    <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 14px;">Co-Author Mapping</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Render node linkages on the scientific collaboration network graph</div>
+                    </div>
+                    <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchSettingsTab(tabName) {
+        // Toggle tab button active styles
+        document.querySelectorAll('.settings-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.currentTarget.classList.add('active');
+
+        // Toggle visibility of panels
+        document.querySelectorAll('.settings-content-pane').forEach(pane => {
+            pane.classList.remove('active');
+        });
+        document.getElementById('pane-' + tabName).classList.add('active');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Publications Repository - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Publications Repository{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pub-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 24px;
+    }
+
+    @media (max-width: 992px) {
+        .pub-layout { grid-template-columns: 1fr; }
+    }
+
+    .pub-card {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .pub-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .pub-title {
+        font-size: 16.5px;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pub-layout">
+    <!-- Left Column: Filter + Publications List -->
+    <div>
+        <!-- Filter toolbar -->
+        <div style="background: #FFFFFF; border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <input type="text" id="pub-search" class="form-control" style="flex-grow: 1;" placeholder="Filter by title, venue, DOI..." onkeyup="filterPublications()">
+            <select id="pub-type-filter" class="form-control" style="width: auto;" onchange="filterPublications()">
+                <option value="">All Types</option>
+                <option value="journal_paper">Journal Paper</option>
+                <option value="conference_paper">Conference Paper</option>
+                <option value="book">Book</option>
+                <option value="patent">Patent</option>
+            </select>
+        </div>
+
+        <div id="publications-list">
+            {% for pub in publications %}
+            <div class="pub-card" data-title="{{ pub.title | lower }}" data-venue="{{ (pub.venue or '') | lower }}" data-doi="{{ (pub.doi or '') | lower }}" data-type="{{ pub.type }}">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+                    <span class="pub-title">{{ pub.title }}</span>
+                    <span class="badge badge-verified">{{ pub.status or 'Published' }}</span>
+                </div>
+
+                <div style="font-size: 13px; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap; margin-top: 2px;">
+                    <span><i class="fa-solid fa-book" style="color: var(--primary);"></i> {{ (pub.type or 'paper').replace('_', ' ') | title }}</span>
+                    <span><i class="fa-solid fa-building-columns" style="color: var(--primary);"></i> {{ pub.venue or 'Academic Journal' }}</span>
+                    <span><i class="fa-solid fa-calendar" style="color: var(--primary);"></i> {{ pub.publication_date or 'N/A' }}</span>
+                </div>
+
+                <div style="font-size: 13.5px; color: var(--text-main); margin-top: 4px;">
+                    <strong>Authors:</strong> 
+                    {% if pub.authors %}
+                        {% for author in pub.authors %}
+                            <a href="{{ url_for('researcher_detail', id=author.id) }}" style="color: var(--primary); text-decoration:none; font-weight:600;">{{ author.full_name }}</a>{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: var(--text-muted); font-style: italic;">No co-authors associated</span>
+                    {% endif %}
+                </div>
+
+                <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-top: 4px;">
+                    {{ pub.abstract or 'No abstract summary logged.' }}
+                </p>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 8px;">
+                    <div>
+                        {% if pub.doi %}
+                        <span style="font-size: 12.5px; color: var(--primary); font-weight: 600;"><i class="fa-solid fa-fingerprint"></i> DOI: {{ pub.doi }}</span>
+                        {% endif %}
+                    </div>
+                    {% if pub.file_url %}
+                    <a href="{{ pub.file_url }}" target="_blank" class="btn btn-secondary" style="font-size: 12.5px; padding: 6px 12px;">
+                        <i class="fa-solid fa-file-pdf" style="color: var(--danger);"></i> View PDF Document
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="card" style="text-align: center; padding: 50px;">
+                <i class="fa-solid fa-book-open" style="font-size: 44px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                <p style="color: var(--text-muted);">No publications registered in the repository.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Right Column: Submission Form -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-circle-plus"></i> Submit Publication</span>
+            </div>
+
+            <form action="{{ url_for('publications') }}" method="POST" enctype="multipart/form-data" id="pub-form" onsubmit="return validatePubForm(event)">
+                <div class="form-group">
+                    <label for="title">Paper Title *</label>
+                    <input type="text" id="title" name="title" class="form-control" placeholder="e.g. A Study on Graph Clustering..." required>
+                </div>
+
+                <div class="form-group">
+                    <label for="abstract">Abstract Summary</label>
+                    <textarea id="abstract" name="abstract" rows="3" class="form-control" placeholder="Key objectives, methodologies, and conclusions..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="venue">Venue (Journal / Conference)</label>
+                    <input type="text" id="venue" name="venue" class="form-control" placeholder="e.g. IEEE Transactions on Network Science">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label for="publication_date">Publication Date</label>
+                        <input type="date" id="publication_date" name="publication_date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="type">Type</label>
+                        <select id="type" name="type" class="form-control">
+                            <option value="journal_paper">Journal Paper</option>
+                            <option value="conference_paper">Conference Paper</option>
+                            <option value="book">Book</option>
+                            <option value="patent">Patent</option>
+                            <option value="technical_report">Technical Report</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="doi">DOI Identifier</label>
+                    <input type="text" id="doi" name="doi" class="form-control" placeholder="e.g. 10.1000/xyz123" onblur="validateDoiFormat(this.value)">
+                    <small id="doi-err" style="color: var(--danger); font-size: 11px; display: none;">Invalid DOI format (e.g. 10.1000/xyz123).</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Co-Authors (ORCID Select)</label>
+                    <select name="co_author_ids" class="form-control" multiple style="height: 100px;">
+                        {% for r in researchers %}
+                            {% if not current_researcher or r.id != current_researcher.id %}
+                            <option value="{{ r.id }}">{{ r.full_name }} ({{ r.orcid_id or 'No ORCID' }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <small style="font-size: 11px; color: var(--text-muted);">Hold Ctrl (or Cmd) to select multiple co-authors</small>
+                </div>
+
+                <!-- Styled Drag & Drop PDF upload -->
+                <div class="form-group">
+                    <label>Attach PDF Document</label>
+                    <div class="upload-dropzone" id="dropzone" onclick="document.getElementById('file').click()">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <div style="font-size: 13.5px; font-weight: 600;" id="file-name-label">Drag & Drop PDF here or click to browse</div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Max file size: 25 MB</div>
+                        <div id="upload-progress-container" style="display: none; margin-top: 10px;">
+                            <div style="width: 100%; background: #E2E8F0; border-radius: 10px; height: 6px; overflow: hidden;">
+                                <div id="upload-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s;"></div>
+                            </div>
+                            <span id="upload-progress-percent" style="font-size: 11px; color: var(--primary); font-weight: 700; margin-top: 4px; display: block;">0%</span>
+                        </div>
+                    </div>
+                    <input type="file" id="file" name="file" accept="application/pdf" style="display: none;" onchange="handleFileSelect(this)">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 12px;" id="pub-submit-btn">
+                    <i class="fa-solid fa-upload"></i> Upload & Submit Entry
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function handleFileSelect(input) {
+        let lbl = document.getElementById('file-name-label');
+        if (input.files && input.files[0]) {
+            let file = input.files[0];
+            if (file.type !== 'application/pdf') {
+                showToast("Only PDF documents are allowed.", "danger");
+                input.value = '';
+                lbl.innerText = 'Drag & Drop PDF here or click to browse';
+                return;
+            }
+            if (file.size > 25 * 1024 * 1024) {
+                showToast("File size must not exceed 25MB.", "danger");
+                input.value = '';
+                lbl.innerText = 'Drag & Drop PDF here or click to browse';
+                return;
+            }
+            lbl.innerText = 'Selected: ' + file.name;
+        }
+    }
+
+    function validateDoiFormat(doi) {
+        let err = document.getElementById('doi-err');
+        if (!doi || doi.trim() === '') {
+            err.style.display = 'none';
+            return true;
+        }
+        // Match DOI regex format (e.g. 10.1000/xyz123)
+        let doiRegex = /^10\.\d{4,9}\/[-._;()/:A-Z0-9]+$/i;
+        if (!doiRegex.test(doi.trim())) {
+            err.style.display = 'block';
+            return false;
+        }
+        err.style.display = 'none';
+        return true;
+    }
+
+    function validatePubForm(e) {
+        let doi = document.getElementById('doi').value;
+        if (!validateDoiFormat(doi)) {
+            showToast("Please fix DOI validation errors before submitting.", "danger");
+            e.preventDefault();
+            return false;
+        }
+
+        // Simulate file upload progress
+        let fileInput = document.getElementById('file');
+        if (fileInput.files.length > 0) {
+            e.preventDefault();
+            let submitBtn = document.getElementById('pub-submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+            
+            let progContainer = document.getElementById('upload-progress-container');
+            let progFill = document.getElementById('upload-progress-bar');
+            let progText = document.getElementById('upload-progress-percent');
+            
+            progContainer.style.display = 'block';
+            
+            let progress = 0;
+            let interval = setInterval(() => {
+                progress += Math.floor(Math.random() * 25) + 5;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    progFill.style.width = '100%';
+                    progText.innerText = '100% (Complete)';
+                    setTimeout(() => {
+                        document.getElementById('pub-form').submit();
+                    }, 500);
+                } else {
+                    progFill.style.width = progress + '%';
+                    progText.innerText = progress + '%';
+                }
+            }, 100);
+            return false;
+        }
+        return true;
+    }
+
+    function filterPublications() {
+        let q = document.getElementById('pub-search').value.toLowerCase().trim();
+        let t = document.getElementById('pub-type-filter').value.toLowerCase();
+        let cards = document.querySelectorAll('.pub-card');
+
+        cards.forEach(card => {
+            let title = card.getAttribute('data-title') || '';
+            let venue = card.getAttribute('data-venue') || '';
+            let doi = card.getAttribute('data-doi') || '';
+            let type = card.getAttribute('data-type') || '';
+
+            let matchQuery = !q || title.includes(q) || venue.includes(q) || doi.includes(q);
+            let matchType = !t || type === t;
+
+            if (matchQuery && matchType) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    let drop = document.getElementById('dropzone');
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
+    drop.addEventListener('dragleave', (e) => { e.preventDefault(); drop.classList.remove('dragover'); });
+    drop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        drop.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            let file = e.dataTransfer.files[0];
+            if (file.type !== 'application/pdf') {
+                showToast("Only PDF documents are allowed.", "danger");
+                return;
+            }
+            if (file.size > 25 * 1024 * 1024) {
+                showToast("File size must not exceed 25MB.", "danger");
+                return;
+            }
+            document.getElementById('file').files = e.dataTransfer.files;
+            handleFileSelect(document.getElementById('file'));
+        }
+    });
+</script>
+{% endblock %}

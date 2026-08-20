@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}System Users Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <span class="card-title"><i class="fa-solid fa-users-gear"></i> System User Accounts</span>
+    </div>
+    
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Email Address</th>
+                    <th>System Role</th>
+                    <th>Email Verification</th>
+                    <th>Account Status</th>
+                    <th>Registered At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td><code>#{{ u.id }}</code></td>
+                    <td><strong>{{ u.email }}</strong></td>
+                    <td>
+                        <span class="role-badge" style="
+                            {% if u.role == 'system_admin' %}
+                                background: #FEE2E2; color: #991B1B;
+                            {% elif u.role == 'institution_admin' %}
+                                background: #FEF3C7; color: #92400E;
+                            {% elif u.role == 'reviewer' %}
+                                background: #E0F2FE; color: #0369A1;
+                            {% else %}
+                                background: #EFF6FF; color: #1E40AF;
+                            {% endif %}
+                        ">
+                            {{ u.role.replace('_', ' ') | title }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if u.is_verified %}
+                        <span class="badge badge-verified"><i class="fa-solid fa-circle-check"></i> Verified</span>
+                        {% else %}
+                        <span class="badge badge-pending"><i class="fa-solid fa-circle-exclamation"></i> Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if u.is_active %}
+                        <span class="badge" style="background-color: #D1FAE5; color: #065F46;">Active</span>
+                        {% else %}
+                        <span class="badge" style="background-color: #F3F4F6; color: #374151;">Deactivated</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ u.created_at[:10] if u.created_at else 'N/A' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                        No registered system users found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

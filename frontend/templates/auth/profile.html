@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Researcher Profile - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fa-solid fa-user-pen"></i> Complete Researcher Profile</span>
+            <span style="font-size: 12px; color: var(--text-muted);">* All fields validate on server-side</span>
+        <style>
+            .static-value-display {
+                padding: 10px 14px;
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                color: #0f172a;
+                font-size: 14px;
+                font-weight: 500;
+                min-height: 42px;
+                display: flex;
+                align-items: center;
+            }
+            .admin-info-banner {
+                padding: 12px 16px;
+                background-color: #f0f9ff;
+                border: 1px solid #bae6fd;
+                border-radius: 8px;
+                color: #0369a1;
+                font-size: 13px;
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+        </style>
+
+        <form action="{{ url_for('researcher_profile_edit') }}" method="POST" id="profile-form" onsubmit="return validateProfileForm()">
+            {% if current_role in ['system_admin', 'institution_admin'] and request.args.get('id') %}
+            <input type="hidden" name="id" value="{{ request.args.get('id') }}">
+            {% endif %}
+
+            {% if current_role == 'researcher' and profile.get('full_name') %}
+            <div class="admin-info-banner">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Your registration identity details are managed by the administrator. Contact your institution admin to modify them.</span>
+            </div>
+            {% endif %}
+
+            <!-- Section 1: Personal & Demographics -->
+            <h4 style="font-size: 15px; color: var(--primary); margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">1. Personal & Demographic Details</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label for="full_name">Full Name {% if current_role == 'researcher' %}*{% endif %}</label>
+                    {% if current_role == 'researcher' and profile.get('full_name') %}
+                        <div class="static-value-display">{{ profile.get('full_name', '') }}</div>
+                    {% else %}
+                        <input type="text" id="full_name" name="full_name" class="form-control" value="{{ profile.get('full_name', '') }}" {% if current_role == 'researcher' %}required{% endif %}>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="mobile_number">Mobile Number (Exactly 10 Digits) {% if current_role == 'researcher' %}*{% endif %}</label>
+                    {% if current_role == 'researcher' and profile.get('mobile_number') %}
+                        <div class="static-value-display">{{ profile.get('mobile_number', '') or '' }}</div>
+                    {% else %}
+                        <input type="text" id="mobile_number" name="mobile_number" class="form-control" placeholder="9876543210" value="{{ profile.get('mobile_number', '') or '' }}" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+                    {% endif %}
+                    <small id="mobile-err" style="color: var(--danger); font-size: 11px; display: none;">Mobile number must contain exactly 10 digits.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="gender">Gender</label>
+                    {% if current_role == 'researcher' and profile.get('full_name') %}
+                        <div class="static-value-display">
+                            {% if profile.get('gender') == 'male' %}Male
+                            {% elif profile.get('gender') == 'female' %}Female
+                            {% elif profile.get('gender') == 'non_binary' %}Non-binary
+                            {% elif profile.get('gender') == 'other' %}{{ profile.get('gender_other', 'Other') }}
+                            {% else %}Prefer not to say
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <select id="gender" name="gender" class="form-control" onchange="toggleGenderOther(this.value)">
+                            <option value="prefer_not_to_say" {% if profile.get('gender') == 'prefer_not_to_say' %}selected{% endif %}>Prefer not to say</option>
+                            <option value="male" {% if profile.get('gender') == 'male' %}selected{% endif %}>Male</option>
+                            <option value="female" {% if profile.get('gender') == 'female' %}selected{% endif %}>Female</option>
+                            <option value="non_binary" {% if profile.get('gender') == 'non_binary' %}selected{% endif %}>Non-binary</option>
+                            <option value="other" {% if profile.get('gender') == 'other' %}selected{% endif %}>Other</option>
+                        </select>
+                    {% endif %}
+                </div>
+
+                {% if current_role != 'researcher' or not profile.get('full_name') %}
+                <div class="form-group" id="gender-other-group" style="display: {% if profile.get('gender') == 'other' %}block{% else %}none{% endif %};">
+                    <label for="gender_other">Please specify gender</label>
+                    <input type="text" id="gender_other" name="gender_other" class="form-control" value="{{ profile.get('gender_other', '') or '' }}">
+                </div>
+                {% endif %}
+
+                <div class="form-group">
+                    <label for="nationality">Nationality</label>
+                    {% if current_role == 'researcher' and profile.get('full_name') %}
+                        <div class="static-value-display">{{ profile.get('nationality', '') or '' }}</div>
+                    {% else %}
+                        <input list="nationalities" id="nationality" name="nationality" class="form-control" placeholder="Select or type nationality..." value="{{ profile.get('nationality', '') or '' }}">
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="country">Country</label>
+                    {% if current_role == 'researcher' and profile.get('country') %}
+                        <div class="static-value-display">{{ profile.get('country', '') or '' }}</div>
+                    {% else %}
+                        <input list="countries" id="country" name="country" class="form-control" placeholder="Select or type country..." value="{{ profile.get('country', '') or '' }}">
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="city">City</label>
+                    {% if current_role == 'researcher' and profile.get('city') %}
+                        <div class="static-value-display">{{ profile.get('city', '') or '' }}</div>
+                    {% else %}
+                        <input type="text" id="city" name="city" class="form-control" placeholder="Boston" value="{{ profile.get('city', '') or '' }}">
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="institution_name">Institution</label>
+                    {% if current_role == 'researcher' and profile.get('institution_name') %}
+                        <div class="static-value-display">{{ profile.get('institution_name', '') or '' }}</div>
+                    {% else %}
+                        <input type="text" id="institution_name" name="institution_name" class="form-control" placeholder="e.g. Stanford University" value="{{ profile.get('institution_name', '') or '' }}">
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="department_name">Department</label>
+                    {% if current_role == 'researcher' and profile.get('department_name') %}
+                        <div class="static-value-display">{{ profile.get('department_name', '') or '' }}</div>
+                    {% else %}
+                        <input type="text" id="department_name" name="department_name" class="form-control" placeholder="e.g. Computer Science" value="{{ profile.get('department_name', '') or '' }}">
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Section 2: Academic Details -->
+            <h4 style="font-size: 15px; color: var(--primary); margin: 24px 0 14px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">2. Academic Background</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label for="designation">Designation {% if current_role == 'researcher' %}*{% endif %}</label>
+                    <input type="text" id="designation" name="designation" class="form-control" placeholder="Senior Research Scientist" value="{{ profile.get('designation', '') or '' }}" {% if current_role == 'researcher' %}required{% endif %}>
+                </div>
+                <div class="form-group">
+                    <label for="highest_qualification">Highest Qualification {% if current_role == 'researcher' %}*{% endif %}</label>
+                    <input type="text" id="highest_qualification" name="highest_qualification" class="form-control" placeholder="Ph.D. Computer Science" value="{{ profile.get('highest_qualification', '') or '' }}" {% if current_role == 'researcher' %}required{% endif %}>
+                </div>
+                <div class="form-group">
+                    <label for="year_highest_qualification">Year Obtained {% if current_role == 'researcher' %}*{% endif %}</label>
+                    <input type="number" id="year_highest_qualification" name="year_highest_qualification" class="form-control" placeholder="2020" value="{{ profile.get('year_highest_qualification', '') or '' }}" {% if current_role == 'researcher' %}required{% endif %}>
+                </div>
+            </div>
+
+            <!-- Section 3: Research & Interests -->
+            <h4 style="font-size: 15px; color: var(--primary); margin: 24px 0 14px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">3. Research & Interests</h4>
+            <div class="form-group">
+                <label for="orcid_id">ORCID Identifier {% if current_role == 'researcher' %}*{% endif %}</label>
+                {% if current_role == 'researcher' and profile.get('orcid_id') %}
+                    <div class="static-value-display">{{ profile.get('orcid_id', '') or '' }}</div>
+                {% else %}
+                    <input type="text" id="orcid_id" name="orcid_id" class="form-control" placeholder="0000-0002-1825-0097" value="{{ profile.get('orcid_id', '') or '' }}">
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label for="skills">Skills (comma separated) {% if current_role == 'researcher' %}*{% endif %}</label>
+                <input type="text" id="skills" name="skills" class="form-control" placeholder="Python, Graph Theory, Data Mining, PyTorch" value="{{ profile.get('skills', []) | join(', ') }}" {% if current_role == 'researcher' %}required{% endif %}>
+            </div>
+            <div class="form-group">
+                <label for="interests">Research Interests (comma separated) {% if current_role == 'researcher' %}*{% endif %}</label>
+                {% if current_role == 'researcher' and profile.get('research_interests') %}
+                    <div class="static-value-display">{{ profile.get('research_interests', []) | join(', ') }}</div>
+                {% else %}
+                    <input type="text" id="interests" name="interests" class="form-control" placeholder="Complex Networks, Machine Learning, Computational Biology" value="{{ profile.get('research_interests', []) | join(', ') }}" {% if current_role == 'researcher' %}required{% endif %}>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label for="bio">Academic Biography {% if current_role == 'researcher' %}*{% endif %}</label>
+                <textarea id="bio" name="bio" rows="4" class="form-control" placeholder="Describe your current research domain, lab projects, and achievements..." {% if current_role == 'researcher' %}required{% endif %}>{{ profile.get('bio', '') or '' }}</textarea>
+            </div>
+
+            <!-- Section 4: External Research IDs -->
+            <h4 style="font-size: 15px; color: var(--primary); margin: 24px 0 14px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">4. External Profiles</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label for="google_scholar_url">Google Scholar URL</label>
+                    <input type="url" id="google_scholar_url" name="google_scholar_url" class="form-control" placeholder="https://scholar.google.com/citations?user=..." value="{{ profile.get('google_scholar_url', '') or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="researchgate_url">ResearchGate URL</label>
+                    <input type="url" id="researchgate_url" name="researchgate_url" class="form-control" placeholder="https://www.researchgate.net/profile/..." value="{{ profile.get('researchgate_url', '') or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="scopus_id">Scopus Author ID</label>
+                    <input type="text" id="scopus_id" name="scopus_id" class="form-control" placeholder="57200000000" value="{{ profile.get('scopus_id', '') or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="wos_id">Web of Science Researcher ID</label>
+                    <input type="text" id="wos_id" name="wos_id" class="form-control" placeholder="A-1000-2020" value="{{ profile.get('wos_id', '') or '' }}">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 30px;">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Profile</button>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+    <!-- Country and Nationality Data Lists -->
+    <datalist id="countries">
+        <option value="United States">
+        <option value="India">
+        <option value="United Kingdom">
+        <option value="Canada">
+        <option value="Australia">
+        <option value="Germany">
+        <option value="France">
+        <option value="Japan">
+        <option value="China">
+        <option value="Brazil">
+        <option value="Singapore">
+        <option value="Netherlands">
+        <option value="Switzerland">
+        <option value="Sweden">
+        <option value="Spain">
+        <option value="Italy">
+    </datalist>
+
+    <datalist id="nationalities">
+        <option value="American">
+        <option value="Indian">
+        <option value="British">
+        <option value="Canadian">
+        <option value="Australian">
+        <option value="German">
+        <option value="French">
+        <option value="Japanese">
+        <option value="Chinese">
+        <option value="Brazilian">
+        <option value="Singaporean">
+        <option value="Dutch">
+        <option value="Swiss">
+        <option value="Swedish">
+        <option value="Spanish">
+        <option value="Italian">
+    </datalist>
+
+<script>
+    function toggleGenderOther(val) {
+        let grp = document.getElementById('gender-other-group');
+        grp.style.display = (val === 'other') ? 'block' : 'none';
+    }
+
+    function validateProfileForm() {
+        let mobile = document.getElementById('mobile_number').value.trim();
+        let err = document.getElementById('mobile-err');
+        if (mobile.length > 0 && mobile.length !== 10) {
+            err.style.display = 'block';
+            return false;
+        }
+        err.style.display = 'none';
+        return true;
+    }
+</script>
+{% endblock %}

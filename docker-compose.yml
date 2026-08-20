@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: scna-postgres
+    environment:
+      POSTGRES_DB: scientific_collaboration
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: scna-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scna-backend
+    ports:
+      - "8001:8000"
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=scientific_collaboration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - STORAGE_PROVIDER=local
+      - UPLOAD_DIR=/workspace/backend/uploads
+    volumes:
+      - uploads:/workspace/backend/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: scna-frontend
+    ports:
+      - "5050:5000"
+    environment:
+      - BACKEND_URL=http://backend:8000/api/v1
+      - FLASK_SECRET_KEY=FLASK_SUPER_SECRET_KEY_CHANGE_ME
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Conferences - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Academic Conferences & Symposia{% endblock %}
+
+{% block extra_css %}
+<style>
+    .conf-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 24px;
+    }
+
+    @media (max-width: 992px) {
+        .conf-layout { grid-template-columns: 1fr; }
+    }
+
+    .conf-card {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .conf-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="conf-layout">
+    <!-- List of Conferences -->
+    <div>
+        {% for conf in conferences %}
+        <div class="conf-card">
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-main);">{{ conf.name }}</div>
+            
+            <div style="font-size: 13.5px; color: var(--text-muted); display: flex; gap: 14px; flex-wrap: wrap;">
+                <span><i class="fa-solid fa-location-dot" style="color: var(--primary);"></i> Location: {{ conf.location or 'Online' }}</span>
+                <span><i class="fa-solid fa-calendar" style="color: var(--primary);"></i> Duration: {{ conf.start_date or 'N/A' }} to {{ conf.end_date or 'N/A' }}</span>
+            </div>
+
+            <p style="font-size: 13.5px; color: var(--text-muted); line-height: 1.5; margin-top: 4px;">
+                {{ conf.description or 'No event description logged.' }}
+            </p>
+
+            {% if conf.website %}
+            <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 6px;">
+                <a href="{{ conf.website }}" target="_blank" class="btn btn-secondary" style="font-size: 12.5px; padding: 6px 12px;"><i class="fa-solid fa-globe"></i> Visit Conference Website</a>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="card" style="text-align: center; padding: 50px;">
+            <i class="fa-solid fa-circle-nodes" style="font-size: 44px; color: var(--text-muted); margin-bottom: 16px;"></i>
+            <p style="color: var(--text-muted);">No academic conferences registered in the system.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Register Conference panel -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa-solid fa-circle-plus"></i> Register Event</span>
+            </div>
+            
+            <form action="{{ url_for('conferences') }}" method="POST">
+                <div class="form-group">
+                    <label for="name">Conference Name *</label>
+                    <input type="text" id="name" name="name" class="form-control" placeholder="e.g. International Conf on Network Science" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Event Details</label>
+                    <textarea id="description" name="description" rows="3" class="form-control" placeholder="Key tracks, deadlines, and topics..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="location">Location</label>
+                    <input type="text" id="location" name="location" class="form-control" placeholder="e.g. Boston, MA, USA">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label for="start_date">Start Date</label>
+                        <input type="date" id="start_date" name="start_date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="end_date">End Date</label>
+                        <input type="date" id="end_date" name="end_date" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="website">Website Link</label>
+                    <input type="url" id="website" name="website" class="form-control" placeholder="e.g. https://example.org">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 12px;"><i class="fa-solid fa-plus"></i> Save Event</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

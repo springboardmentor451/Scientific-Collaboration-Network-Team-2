@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Collaboration Network Map - Scientific Collaboration Network Analyzer{% endblock %}
+
+{% block page_title %}Scientific Collaboration Network{% endblock %}
+
+{% block extra_css %}
+<style>
+    .network-card {
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .network-container {
+        height: 650px;
+        background-color: #F8FAFC;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    #network-graph {
+        width: 100%;
+        height: 100%;
+    }
+
+    .graph-controls {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        display: flex;
+        gap: 8px;
+        z-index: 10;
+    }
+
+    .graph-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #FFFFFF;
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        font-size: 15px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: var(--shadow-md);
+        transition: all 0.2s;
+    }
+
+    .graph-btn:hover {
+        background: var(--primary-light);
+        color: var(--primary);
+        border-color: var(--primary);
+        transform: translateY(-2px);
+    }
+
+    .node-details-drawer {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 320px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        box-shadow: var(--shadow-lg);
+        display: none;
+        z-index: 15;
+        max-height: calc(100% - 40px);
+        overflow-y: auto;
+    }
+    
+    .drawer-section {
+        border-top: 1px solid var(--border-color);
+        padding-top: 14px;
+        margin-top: 14px;
+    }
+    
+    .drawer-section-title {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="network-card">
+    <div class="toolbar">
+        <div style="display: flex; gap: 12px; align-items: center; flex-grow: 1; flex-wrap: wrap;">
+            <select id="node-search-select" class="form-control" style="max-width: 300px;" onchange="focusOnResearcherNode(this.value)">
+                <option value="">Locate Researcher Node...</option>
+            </select>
+            <button class="btn btn-secondary" onclick="resetGraphView()"><i class="fa-solid fa-arrows-to-dot"></i> Fit Network</button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="toggleFullScreenGraph()"><i class="fa-solid fa-expand"></i> Full Screen Mode</button>
+        </div>
+    </div>
+
+    <div class="network-container" id="graph-wrapper">
+        <div id="network-graph"></div>
+
+        <!-- On-graph zoom buttons -->
+        <div class="graph-controls">
+            <button class="graph-btn" onclick="zoomGraph(1.3)" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+            <button class="graph-btn" onclick="zoomGraph(0.7)" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+            <button class="graph-btn" onclick="resetGraphView()" title="Fit View"><i class="fa-solid fa-expand"></i></button>
+        </div>
+
+        <!-- Node / Edge Info Drawer -->
+        <div class="node-details-drawer" id="info-drawer">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="font-size: 15px; font-weight: 700; color: var(--primary);" id="drawer-title">Details</h4>
+                <button style="border: none; background: none; cursor: pointer; color: var(--text-muted); font-size: 16px;" onclick="closeDrawer()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="drawer-content" style="font-size: 13.5px; color: var(--text-main);">
+                Select a researcher node or connecting line to inspect network metrics.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var networkInstance = null;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        var container = document.getElementById('network-graph');
+        
+        fetch('/network/data')
+            .then(response => response.json())
+            .then(graphData => {
+                var select = document.getElementById('node-search-select');
+                (graphData.nodes || []).sort((a,b) => a.label.localeCompare(b.label)).forEach(n => {
+                    var opt = document.createElement('option');
+                    opt.value = n.id;
+                    opt.innerText = n.label;
+                    select.appendChild(opt);
+                });
+
+                var data = {
+                    nodes: new vis.DataSet(graphData.nodes),
+                    edges: new vis.DataSet(graphData.edges)
+                };
+                
+                var options = {
+                    nodes: {
+                        shape: 'dot',
+                        font: { color: '#0F172A', size: 14, face: 'Plus Jakarta Sans', strokeWidth: 4, strokeColor: '#FFFFFF' },
+                        borderWidth: 2,
+                        shadow: { enabled: true, color: 'rgba(15, 23, 42, 0.05)', size: 6, x: 0, y: 3 },
+                        color: {
+                            background: '#2563EB',
+                            border: '#1D4ED8',
+                            highlight: { background: '#0EA5E9', border: '#0284C7' }
+                        }
+                    },
+                    edges: {
+                        color: { color: 'rgba(148, 163, 184, 0.4)', highlight: '#2563EB' },
+                        smooth: { type: 'continuous' }
+                    },
+                    physics: {
+                        forceAtlas2Based: { gravitationalConstant: -26, centralGravity: 0.005, springLength: 230, springConstant: 0.18 },
+                        maxVelocity: 146,
+                        solver: 'forceAtlas2Based',
+                        timestep: 0.35,
+                        stabilization: { enabled: true, iterations: 150 }
+                    }
+                };
+                
+                networkInstance = new vis.Network(container, data, options);
+
+                networkInstance.on("click", function (params) {
+                    var drawer = document.getElementById('info-drawer');
+                    var content = document.getElementById('drawer-content');
+                    var title = document.getElementById('drawer-title');
+
+                    if (params.nodes.length > 0) {
+                        var nodeId = params.nodes[0];
+                        var nodeData = data.nodes.get(nodeId);
+                        title.innerText = "Researcher Overview";
+                        
+                        content.innerHTML = `
+                            <div style="font-weight:700; font-size:16px; color:var(--text-main);">${nodeData.label}</div>
+                            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Node ID: #${nodeId}</div>
+                            <div class="skeleton-row" style="margin-top:10px;"></div>
+                            <div class="skeleton-row" style="width:70%;"></div>
+                        `;
+                        drawer.style.display = 'block';
+
+                        // Fetch detailed stats asynchronously
+                        fetch(`/api/researchers/${nodeId}/stats`)
+                            .then(res => res.json())
+                            .then(stats => {
+                                let profile = stats.researcher || {};
+                                let pubsCount = stats.publications ? stats.publications.length : 0;
+                                let collabCount = stats.collaborators ? stats.collaborators.length : 0;
+                                let projCount = stats.projects ? stats.projects.length : 0;
+                                
+                                content.innerHTML = `
+                                    <div style="font-weight:700; font-size:16px; color:var(--text-main);">${nodeData.label}</div>
+                                    <div style="font-size:12.5px; color:var(--text-muted); margin-top:4px;">
+                                        <i class="fa-solid fa-graduation-cap"></i> ${profile.designation || 'Researcher Profile'}
+                                    </div>
+                                    
+                                    <div class="drawer-section">
+                                        <div class="drawer-section-title">Network Metrics</div>
+                                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                            <span>Publications:</span><strong>${pubsCount}</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                            <span>Active Projects:</span><strong>${projCount}</strong>
+                                        </div>
+                                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                            <span>Co-Authors:</span><strong>${collabCount}</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="drawer-section">
+                                        <div class="drawer-section-title">Interests / Expertise</div>
+                                        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                            ${(profile.interests || []).map(i => `<span style="background:var(--primary-light); color:var(--primary); font-size:11px; padding:2px 8px; border-radius:4px; font-weight:600;">${i}</span>`).join('') || '<span style="font-style:italic; color:var(--text-muted);">None logged</span>'}
+                                        </div>
+                                    </div>
+
+                                    <a href="/researchers/${nodeId}" class="btn btn-secondary" style="font-size:12px; margin-top:16px; padding:8px 12px; text-decoration:none; display:flex; justify-content:center; gap:6px;">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Full CV Profile
+                                    </a>
+                                `;
+                            }).catch(() => {
+                                content.innerHTML = `
+                                    <div style="font-weight:700; font-size:16px; color:var(--text-main);">${nodeData.label}</div>
+                                    <div style="margin-top:10px; color:var(--danger);">Failed to retrieve network statistics.</div>
+                                `;
+                            });
+                    } else if (params.edges.length > 0) {
+                        var edgeId = params.edges[0];
+                        var edgeData = data.edges.get(edgeId);
+                        title.innerText = "Co-authorship Relation";
+                        content.innerHTML = `
+                            <div style="font-weight:700; font-size:14px; margin-bottom:10px; color: var(--text-main);">Connection Metrics</div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                <span>Collaboration Strength:</span><strong>${edgeData.value || 1}</strong>
+                            </div>
+                            <div style="font-size:12.5px; color:var(--text-muted); line-height:1.4; border-top:1px solid var(--border-color); padding-top:10px; margin-top:10px;">
+                                <i class="fa-solid fa-circle-info"></i> ${edgeData.title || 'Shared publication record'}
+                            </div>
+                        `;
+                        drawer.style.display = 'block';
+                    } else {
+                        drawer.style.display = 'none';
+                    }
+                });
+            });
+    });
+
+    function focusOnResearcherNode(id) {
+        if (!id || !networkInstance) return;
+        networkInstance.focus(id, { scale: 1.2, animation: true });
+        networkInstance.selectNodes([id]);
+        
+        // Trigger click event behavior manually to populate details
+        var params = { nodes: [id], edges: [] };
+        networkInstance.emit("click", params);
+    }
+
+    function zoomGraph(factor) {
+        if (!networkInstance) return;
+        var scale = networkInstance.getScale() * factor;
+        networkInstance.moveTo({ scale: scale, animation: true });
+    }
+
+    function resetGraphView() {
+        if (!networkInstance) return;
+        networkInstance.fit({ animation: true });
+    }
+
+    function closeDrawer() {
+        document.getElementById('info-drawer').style.display = 'none';
+    }
+
+    function toggleFullScreenGraph() {
+        var elem = document.getElementById('graph-wrapper');
+        if (!document.fullscreenElement) {
+            elem.requestFullscreen().catch(err => {});
+        } else {
+            document.exitFullscreen();
+        }
+    }
+</script>
+{% endblock %}
