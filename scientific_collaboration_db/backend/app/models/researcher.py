@@ -27,6 +27,7 @@ class Researcher(Base):
     academic_title: Mapped[str | None] = mapped_column(String(100))  # e.g. Professor, PhD Candidate
     orcid_id: Mapped[str | None] = mapped_column(String(25), unique=True)
     bio: Mapped[str | None] = mapped_column(Text)
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -41,3 +42,27 @@ class Researcher(Base):
 
     def __repr__(self) -> str:
         return f"<Researcher {self.full_name}>"
+
+    @property
+    def tag_names(self) -> list[str]:
+        return [t.name for t in self.tags]
+
+    @property
+    def skill_names(self) -> list[str]:
+        from app.models.tag import TagCategory
+        return [t.name for t in self.tags if t.category == TagCategory.SKILL]
+
+    @property
+    def interest_names(self) -> list[str]:
+        from app.models.tag import TagCategory
+        return [t.name for t in self.tags if t.category == TagCategory.RESEARCH_INTEREST]
+
+    @property
+    def skills(self) -> list[str]:
+        from app.models.tag import TagCategory
+        return [t.name for t in self.tags if t.category == TagCategory.SKILL]
+
+    @property
+    def interests(self) -> list[str]:
+        from app.models.tag import TagCategory
+        return [t.name for t in self.tags if t.category == TagCategory.RESEARCH_INTEREST]

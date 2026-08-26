@@ -41,7 +41,17 @@ def send_email(to_email: str, subject: str, body_text: str) -> None:
         server.send_message(message)
 
 
-# def send_verification_email(to_email: str, verification_link: str) -> None:
+def send_password_reset_email(to_email: str, reset_link: str) -> None:
+    subject = "Reset your password — Scientific Collaboration Network Analyzer"
+    body = (
+        f"Hi,\n\n"
+        f"Someone (hopefully you) requested a password reset for this account.\n"
+        f"Click the link below to set a new password. It expires in 30 minutes:\n\n"
+        f"{reset_link}\n\n"
+        f"If you didn't request this, you can safely ignore this email — your password will not change.\n"
+    )
+    send_email(to_email, subject, body)
+
 
 def send_otp_email(to_email: str, code: str) -> None:
     subject = "Your sign-in code — Scientific Collaboration Network Analyzer"
@@ -55,7 +65,6 @@ def send_otp_email(to_email: str, code: str) -> None:
 
 
 def send_verification_email(to_email: str, verification_link: str) -> None:
-    # ------------
     subject = "Verify your email — Scientific Collaboration Network Analyzer"
     body = (
         f"Hi,\n\n"
@@ -63,5 +72,26 @@ def send_verification_email(to_email: str, verification_link: str) -> None:
         f"{verification_link}\n\n"
         f"This link expires in {settings.EMAIL_VERIFICATION_EXPIRE_MINUTES // 60} hours.\n\n"
         f"If you didn't create this account, you can ignore this email."
+    )
+    send_email(to_email, subject, body)
+
+
+def send_citation_received_email(to_email: str, cited_title: str, citing_title: str) -> None:
+    subject = "Your publication was cited — Scientific Collaboration Network Analyzer"
+    body = (
+        f"Hi,\n\n"
+        f"Your publication \"{cited_title}\" was just cited by another publication in the system:\n\n"
+        f"\"{citing_title}\"\n\n"
+        f"You can turn these emails off anytime from Settings in the app.\n"
+    )
+    send_email(to_email, subject, body)
+
+
+def send_conference_registration_email(to_email: str, conference_name: str, role: str) -> None:
+    subject = "Conference registration confirmed — Scientific Collaboration Network Analyzer"
+    body = (
+        f"Hi,\n\n"
+        f"You're registered for \"{conference_name}\" as: {role}.\n\n"
+        f"You can turn these emails off anytime from Settings in the app.\n"
     )
     send_email(to_email, subject, body)

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.deps import get_current_user
+from app.core.email import send_email
 from app.database import get_db
 from app.models import Conference, ConferenceParticipation, Publication, Researcher, User, UserRole
 from app.schemas.common import ParticipationOut
@@ -96,6 +97,21 @@ def create_participation(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not create participation record")
     db.refresh(participation)
     log_action(db, current_user.id, "CREATE", "ConferenceParticipation", participation.id, {"conference_id": str(payload.conference_id)})
+
+    # Real notification: email the researcher who was registered (respects
+    # their saved email_notifications_enabled preference from Settings).
+    target_user = db.get(Researcher, target_researcher_id).user if db.get(Researcher, target_researcher_id) else None
+    conference = db.get(Conference, payload.conference_id)
+    if target_user and target_user.email_notifications_enabled and conference:
+        send_email(
+            target_user.email,
+            "Conference registration confirmed — Scientific Collaboration Network Analyzer",
+            (
+                f"Hi,\n\nYou're registered for \"{conference.name}\" as: {payload.role}.\n\n"
+                f"You can turn these emails off anytime from Settings.\n"
+            ),
+        )
+
     return participation
 
 

@@ -63,6 +63,8 @@ class InstitutionOut(BaseModel):
     name: str
     country: str | None
     institution_type: str | None
+    address: str | None = None
+    website: str | None = None
 
 
 class ResearcherOut(BaseModel):
@@ -72,19 +74,31 @@ class ResearcherOut(BaseModel):
     department: str | None
     academic_title: str | None
     orcid_id: str | None
+    bio: str | None = None
+    avatar_url: str | None = None
     institution: InstitutionOut | None = None
+    tag_names: list[str] = []
+    skill_names: list[str] = []
+    interest_names: list[str] = []
+    skills: list[str] = []      # tag_names filtered to category=skill — lets the
+    interests: list[str] = []  # Profile editor pre-fill the right box correctly
 
 
 class PublicationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     title: str
+    abstract: str | None = None
     publication_type: str
     status: str
     doi: str | None
     journal_or_venue: str | None
+    volume: str | None = None
+    issue: str | None = None
+    pages: str | None = None
     publication_date: date | None
     author_names: list[str] = []
+    file_name: str | None = None
 
 
 class ProjectMemberOut(BaseModel):
@@ -112,6 +126,7 @@ class ConferenceOut(BaseModel):
     id: uuid.UUID
     name: str
     location: str | None
+    website: str | None = None
     start_date: date | None
     end_date: date | None
 

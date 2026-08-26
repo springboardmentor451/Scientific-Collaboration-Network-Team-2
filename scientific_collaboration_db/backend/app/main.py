@@ -103,13 +103,16 @@ works end-to-end (connection, models, relationships, queries), not to be
 the full application API. Extend the routers here as the rest of the
 platform (auth, write endpoints, dashboards, etc.) is built out.
 """
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Conference, Institution, Project, Publication, Researcher
+from app.models import Conference, Institution, Project, Publication, PublicationAuthor, Researcher
 from app.routers import (
     admin, auth, citations, conference_participations, conferences,
     institutions, projects, publications, researchers,
@@ -131,6 +134,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Publicly serves uploaded avatar images directly (e.g. <img src="{API_BASE_URL}/uploads/avatars/...">).
+# Publication files are intentionally NOT served this way — they go through
+# the dedicated GET /publications/{id}/file endpoint instead, which sets a
+# proper filename/content-disposition for downloading.
+_UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
+_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+(_UPLOAD_DIR / "avatars").mkdir(parents=True, exist_ok=True)
+app.mount("/uploads/avatars", StaticFiles(directory=str(_UPLOAD_DIR / "avatars")), name="avatars")
 
 app.include_router(auth.router)
 app.include_router(citations.router)
@@ -157,7 +169,13 @@ def list_institutions(db: Session = Depends(get_db)):
 
 @app.get("/researchers", response_model=list[ResearcherOut], tags=["researchers"])
 def list_researchers(db: Session = Depends(get_db)):
-    return db.query(Researcher).order_by(Researcher.full_name).all()
+    from sqlalchemy.orm import joinedload
+    return (
+        db.query(Researcher)
+        .options(joinedload(Researcher.institution), joinedload(Researcher.tags))
+        .order_by(Researcher.full_name)
+        .all()
+    )
 
 
 @app.get("/researchers/{researcher_id}", response_model=ResearcherOut, tags=["researchers"])
@@ -170,7 +188,13 @@ def get_researcher(researcher_id: str, db: Session = Depends(get_db)):
 
 @app.get("/publications", response_model=list[PublicationOut], tags=["publications"])
 def list_publications(db: Session = Depends(get_db)):
-    return db.query(Publication).order_by(Publication.publication_date.desc().nullslast()).all()
+    from sqlalchemy.orm import joinedload
+    return (
+        db.query(Publication)
+        .options(joinedload(Publication.authors).joinedload(PublicationAuthor.researcher))
+        .order_by(Publication.publication_date.desc().nullslast())
+        .all()
+    )
 
 
 @app.get("/projects", response_model=list[ProjectOut], tags=["projects"])

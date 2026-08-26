@@ -9,8 +9,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleSignIn()"></script>
+<script src="lib/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
+<script src="lib/html2canvas.min.js"></script>
 <style>
 
 /* ============================================================
@@ -98,6 +101,12 @@ a{color:inherit; text-decoration:none;}
   border-radius:var(--radius-md);
 }
 .clay-pressed{ box-shadow:var(--shadow-pressed); }
+.btn-menu-item{
+  display:block; width:100%; text-align:left; background:none; border:none;
+  padding:10px 12px; border-radius:10px; font-size:13.5px; color:var(--ink);
+  cursor:pointer; font-family:inherit;
+}
+.btn-menu-item:hover{ background:var(--clay-lo); }
 .mono{font-family:var(--font-mono);}
 
 /* ============================================================
@@ -947,6 +956,9 @@ td.mono, .cell-doi{font-family:var(--font-mono); font-size:12px; color:var(--ink
         <label style="font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;">Continue as</label>
         <div class="role-grid" id="role-grid" style="margin-top:8px;"></div>
       </div>
+      <div id="register-role-note" style="display:none; font-size:13px; color:var(--ink-soft); background:var(--clay); border-radius:12px; padding:12px 14px; margin-bottom:16px;">
+        New accounts are created as <b>Researcher</b>. Institution Admin, Reviewer, and System Admin accounts are set up directly by a System Admin — there's only ever one System Admin for the whole platform.
+      </div>
 
       <form id="auth-form" class="field-grid" novalidate onsubmit="handleAuthSubmit(event)">
         <div class="field" id="field-name" style="display:none;">
@@ -959,7 +971,11 @@ td.mono, .cell-doi{font-family:var(--font-mono); font-size:12px; color:var(--ink
         </div>
         <div class="field">
           <label>Password</label>
-          <input type="password" id="auth-password" placeholder="••••••••">
+          <input type="password" id="auth-password" placeholder="••••••••" oninput="updatePasswordStrength('auth-password','auth-password-strength')">
+          <div id="auth-password-strength" style="display:none; margin-top:6px;"></div>
+        </div>
+        <div id="forgot-password-row" style="text-align:right; margin-top:-10px;">
+          <a href="#" onclick="openForgotPassword(); return false;" style="font-size:12.5px; color:var(--indigo);">Forgot password?</a>
         </div>
         <div class="field" id="field-institution" style="display:none;">
           <label>Institution</label>
@@ -1028,13 +1044,17 @@ td.mono, .cell-doi{font-family:var(--font-mono); font-size:12px; color:var(--ink
     <main class="main">
       <div class="topbar">
         <button class="btn-icon hamburger" onclick="toggleSidebar(true)">☰</button>
-        <div class="search-box">
+        <div class="search-box" style="position:relative;">
           <span style="color:var(--ink-faint);">⌕</span>
-          <input type="text" placeholder="Search publications, researchers, DOIs…" id="global-search">
+          <input type="text" placeholder="Search publications, researchers, DOIs…" id="global-search" oninput="handleGlobalSearchInput()" onkeydown="if(event.key==='Enter') handleGlobalSearchInput(true)">
+          <div id="global-search-results" class="clay" style="display:none; position:absolute; left:0; right:0; top:44px; max-height:360px; overflow-y:auto; z-index:50; border-radius:14px; padding:8px;"></div>
         </div>
         <div class="topbar-actions">
           <button class="btn-icon" onclick="toggleTheme()" title="Toggle theme"><span id="theme-ic">☾</span></button>
-          <button class="btn-icon" onclick="showToast('No new notifications right now.')" title="Notifications">🔔</button>
+          <div style="position:relative;">
+            <button class="btn-icon" onclick="toggleNotifications(event)" title="Notifications">🔔</button>
+            <div id="notif-menu" class="clay" style="display:none; position:absolute; right:0; top:48px; width:300px; max-height:400px; overflow-y:auto; padding:8px; z-index:50; border-radius:14px;"></div>
+          </div>
           <div class="avatar" id="topbar-avatar">RS</div>
         </div>
       </div>
@@ -1167,9 +1187,11 @@ let DB = {
   projects: [],
   conferences: [],
   citations: [],
+  citationEdges: [],
   auditLogs: [],
   pendingReviews: [],
   users: [],
+  myParticipations: [],
 };
 
 const STATUS_LABEL = {draft:'Draft', submitted:'Submitted', published:'Published', archived:'Archived'};
@@ -1217,6 +1239,27 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
+async function apiUpload(path, formData){
+  const headers = {};
+  if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  // Deliberately no Content-Type here — the browser sets the correct
+  // multipart/form-data boundary itself; setting it manually breaks uploads.
+  let res;
+  try {
+    res = await fetch(API_BASE_URL + path, { method: 'POST', headers, body: formData });
+  } catch (networkErr) {
+    throw new Error(`Could not reach the API at ${API_BASE_URL}. (${networkErr.message})`);
+  }
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) {
+    let msg = (data && data.detail) || `${res.status} ${res.statusText}`;
+    if (typeof msg !== 'string') msg = JSON.stringify(msg);
+    throw new Error(msg);
+  }
+  return data;
+}
+
 function lastName(fullName) {
   if (!fullName) return '';
   const parts = fullName.trim().split(/\s+/);
@@ -1231,7 +1274,12 @@ function mapResearcher(r, counts) {
     name: r.full_name,
     dept: r.department || '—',
     inst: r.institution ? r.institution.name : '—',
-    skills: [], // not exposed by GET /researchers — would need a dedicated tags endpoint
+    skills: r.tag_names || [],
+    skillTags: r.skill_names || [],
+    interestTags: r.interest_names || [],
+    orcid: r.orcid_id || null,
+    bio: r.bio || null,
+    avatarUrl: r.avatar_url || null,
     pubs: counts.pubs || 0,
     collabs: counts.collabs || 0,
   };
@@ -1243,12 +1291,18 @@ function mapPublication(p, researcherLookupByName) {
   return {
     id: p.id,
     title: p.title,
+    abstract: p.abstract || '',
     type: PUB_TYPE_LABEL[p.publication_type] || p.publication_type,
+    rawType: p.publication_type,
     status: p.status,
     authors: (p.author_names || []).map(lastName),
     authorFullNames: p.author_names || [],
+    fileName: p.file_name || null,
     date: p.publication_date || '',
     venue: p.journal_or_venue || '—',
+    volume: p.volume || '',
+    issue: p.issue || '',
+    pages: p.pages || '',
     doi: p.doi || null,
     inst: firstAuthorResearcher ? firstAuthorResearcher.inst : '—',
     dept: firstAuthorResearcher ? firstAuthorResearcher.dept : '—',
@@ -1277,7 +1331,9 @@ function mapConference(c) {
     name: c.name,
     role: 'Participant', // per-user role needs /conference-participations, resolved separately for "my" views
     date: c.start_date || c.end_date || '',
+    endDate: c.end_date || '',
     location: c.location || '—',
+    website: c.website || null,
     status: (c.start_date && c.start_date < today) ? 'Completed' : 'Upcoming',
   };
 }
@@ -1310,12 +1366,37 @@ async function loadAllData() {
   DB.projects = projectsRaw.map(mapProject);
   DB.conferences = conferencesRaw.map(mapConference);
 
+  // The logged-in researcher's own real registrations — used to show the
+  // actual role/status on each conference card and to enable "Cancel
+  // registration" only where a real registration exists.
+  DB.myParticipations = [];
+  if (currentUser && currentUser.researcher) {
+    try {
+      DB.myParticipations = await apiFetch(`/conference-participations?researcher_id=${currentUser.researcher.id}`);
+    } catch (e) { DB.myParticipations = []; }
+    const byConfId = {};
+    DB.myParticipations.forEach(p => { byConfId[p.conference_id] = p; });
+    DB.conferences.forEach(c => {
+      const mine = byConfId[c.id];
+      c.myParticipationId = mine ? mine.id : null;
+      c.role = mine ? (mine.role.charAt(0).toUpperCase() + mine.role.slice(1)) : 'Not registered';
+    });
+  }
+
   // Citations page: real citing/cited edges. "Cited by" = how many other
   // publications in the system cite this one.
   const citedCounts = {};
+  const pubById = {};
+  DB.publications.forEach(p => { pubById[p.id] = p; });
   citationsRaw.forEach(c => {
     if (c.cited_publication_id) citedCounts[c.cited_publication_id] = (citedCounts[c.cited_publication_id] || 0) + 1;
   });
+  // Real per-edge list, used by the publication detail modal's "Cited by" section.
+  DB.citationEdges = citationsRaw.map(c => ({
+    citing_publication_id: c.citing_publication_id,
+    cited_publication_id: c.cited_publication_id,
+    citingTitle: pubById[c.citing_publication_id] ? pubById[c.citing_publication_id].title : (c.external_title || 'External work'),
+  }));
   DB.citations = DB.publications
     .filter(p => p.doi)
     .map(p => ({
@@ -1337,9 +1418,12 @@ async function loadAllData() {
         apiFetch('/admin/audit-logs?limit=100'),
       ]);
       DB.users = users.map(u => ({
+        id: u.id,
         name: u.researcher ? u.researcher.full_name : u.email.split('@')[0],
         email: u.email,
         role: ROLE_LABELS[u.role] || u.role,
+        rawRole: u.role,
+        isActive: u.is_active,
         status: u.is_active ? 'Active' : 'Suspended',
       }));
       DB.auditLogs = auditResp.logs.map(l => ({
@@ -1394,6 +1478,40 @@ function renderRoleGrid(){
 }
 function selectRole(id){ selectedRole = id; renderRoleGrid(); }
 
+/* ---------- live password strength meter ---------- */
+function scorePasswordStrength(pw){
+  if(!pw) return { score: 0, label: '' };
+  let score = 0;
+  if(pw.length >= 8) score++;
+  if(pw.length >= 12) score++;
+  if(/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+  if(/\d/.test(pw)) score++;
+  if(/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [
+    { label: 'Very weak', color: 'var(--red)' },
+    { label: 'Weak', color: 'var(--red)' },
+    { label: 'Fair', color: 'var(--amber)' },
+    { label: 'Good', color: 'var(--teal)' },
+    { label: 'Strong', color: 'var(--green)' },
+    { label: 'Very strong', color: 'var(--green)' },
+  ];
+  return { score, ...levels[Math.min(score, levels.length-1)] };
+}
+function updatePasswordStrength(inputId, barId){
+  const pw = document.getElementById(inputId).value;
+  const el = document.getElementById(barId);
+  if(!pw){ el.style.display = 'none'; return; }
+  const { score, label, color } = scorePasswordStrength(pw);
+  const pct = Math.min(100, (score / 5) * 100);
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="height:5px; border-radius:4px; background:var(--clay-lo); overflow:hidden;">
+      <div style="height:100%; width:${pct}%; background:${color}; transition:width .2s, background .2s;"></div>
+    </div>
+    <div style="font-size:11.5px; color:${color}; margin-top:3px;">${label}</div>
+  `;
+}
+
 function setAuthTab(mode){
   authMode = mode;
   document.getElementById('tab-login').classList.toggle('active', mode==='login');
@@ -1402,6 +1520,22 @@ function setAuthTab(mode){
   document.getElementById('field-institution').style.display = mode==='register' ? 'flex':'none';
   document.getElementById('auth-submit-btn').textContent = mode==='register' ? 'Create account & continue' : 'Sign in to workspace';
   document.getElementById('auth-error').textContent = '';
+
+  // Self-registration only ever creates a Researcher account on this backend
+  // (see /auth/register). Showing Institution Admin / Reviewer / System Admin
+  // as pickable options during sign-up would be misleading, since picking
+  // them has no effect — those roles are provisioned directly by a System
+  // Admin. So the role picker is Sign-in only; Register shows a plain note.
+  if(mode === 'register'){
+    selectedRole = 'researcher';
+    document.getElementById('role-select-wrap').style.display = 'none';
+    document.getElementById('register-role-note').style.display = 'block';
+    document.getElementById('forgot-password-row').style.display = 'none';
+  } else {
+    document.getElementById('role-select-wrap').style.display = 'block';
+    document.getElementById('register-role-note').style.display = 'none';
+    document.getElementById('forgot-password-row').style.display = 'block';
+  }
 }
 
 let pendingSession = null;
@@ -1475,6 +1609,8 @@ async function handleAuthSubmit(e){
 function startOtpStep(email, message){
   document.querySelector('.auth-tabs').style.display = 'none';
   document.getElementById('role-select-wrap').style.display = 'none';
+  document.getElementById('register-role-note').style.display = 'none';
+  document.getElementById('forgot-password-row').style.display = 'none';
   document.getElementById('auth-form').style.display = 'none';
   document.getElementById('auth-divider').style.display = 'none';
   document.getElementById('google-btn-container').style.display = 'none';
@@ -1585,17 +1721,27 @@ function cancelOtp(){
 }
 
 /* ---------- Continue with Google ---------- */
-function initGoogleSignIn(){
+function initGoogleSignIn(retriesLeft){
   if(!GOOGLE_CLIENT_ID){
-    document.getElementById('google-unconfigured-note').style.display = 'block';
+    const note = document.getElementById('google-unconfigured-note');
+    if(note) note.style.display = 'block';
     return;
   }
-  if(typeof google === 'undefined' || !google.accounts) return;
+  // Google's Identity Services script loads asynchronously and may not be
+  // ready yet by the time our own script runs (or vice versa) — rather than
+  // relying on a <script onload> race, poll briefly until it's actually
+  // available, so this works regardless of load order.
+  if(typeof google === 'undefined' || !google.accounts){
+    if(retriesLeft === undefined) retriesLeft = 40; // ~10s at 250ms
+    if(retriesLeft <= 0) return;
+    setTimeout(() => initGoogleSignIn(retriesLeft - 1), 250);
+    return;
+  }
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
-  google.accounts.id.renderButton(
-    document.getElementById('google-btn-container'),
-    { theme: 'outline', size: 'large', width: 320, text: 'continue_with' }
-  );
+  const container = document.getElementById('google-btn-container');
+  if(container){
+    google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 320, text: 'continue_with' });
+  }
 }
 
 async function handleGoogleCredential(response){
@@ -1625,11 +1771,14 @@ async function handleGoogleCredential(response){
 function resetOtpUi(){
   document.getElementById('otp-step').style.display = 'none';
   document.querySelector('.auth-tabs').style.display = 'flex';
-  document.getElementById('role-select-wrap').style.display = 'block';
   document.getElementById('auth-form').style.display = 'flex';
   document.getElementById('auth-divider').style.display = 'flex';
   document.getElementById('google-btn-container').style.display = 'flex';
   document.getElementById('auth-foot').style.display = 'block';
+  // Restore whichever of role-picker / register-note belongs to the current tab
+  document.getElementById('role-select-wrap').style.display = authMode === 'register' ? 'none' : 'block';
+  document.getElementById('register-role-note').style.display = authMode === 'register' ? 'block' : 'none';
+  document.getElementById('forgot-password-row').style.display = authMode === 'register' ? 'none' : 'block';
 }
 
 // Auto-advance / backspace / paste handling for the 6 OTP boxes
@@ -1663,7 +1812,7 @@ function logout(){
   authToken = null;
   currentUser = null;
   try{ localStorage.removeItem('rs_auth_token'); }catch(e){}
-  DB = {researchers:[], publications:[], projects:[], conferences:[], citations:[], auditLogs:[], pendingReviews:[], users:[]};
+  DB = {researchers:[], publications:[], projects:[], conferences:[], citations:[], citationEdges:[], auditLogs:[], pendingReviews:[], users:[], myParticipations:[]};
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('auth-form').reset();
@@ -1685,9 +1834,8 @@ const PAGE_ACCESS = {
   conferences:    ['researcher','reviewer','institution_admin','system_admin'],
   citations:      ['researcher','institution_admin','system_admin'],
   review:         ['reviewer'],
-  institution:    ['institution_admin'],
+  institution:    ['institution_admin','system_admin'],
   analysis:       ['researcher','institution_admin','system_admin'],
-  reports:        ['institution_admin','system_admin'],
   users:          ['system_admin'],
   audit:          ['system_admin'],
   profile:        ['researcher','reviewer','institution_admin','system_admin'],
@@ -1708,7 +1856,6 @@ function navFor(role){
     {group:'Research', id:'citations', label:'Citations', ic:'❝'},
     {group:'Research', id:'institution', label:'Institution', ic:'⌂'},
     {group:'Insights', id:'analysis', label:'Analysis Dashboard', ic:'📊'},
-    {group:'Insights', id:'reports', label:'Reports & Export', ic:'▨'},
     {group:'Administration', id:'users', label:'User Management', ic:'⚉'},
     {group:'Administration', id:'audit', label:'Audit & Compliance', ic:'⛊'},
     {group:'You', id:'profile', label:'Profile', ic:'☺'},
@@ -1753,6 +1900,16 @@ function toggleSidebar(open){
 /* ============================================================
    APP ENTRY
    ============================================================ */
+function appShellSkeleton(){
+  return `
+    <div class="page-head">
+      <div><div class="clay skeleton" style="width:160px; height:14px; margin-bottom:10px;"></div><div class="clay skeleton" style="width:260px; height:26px;"></div></div>
+    </div>
+    <div class="grid grid-4" style="margin-bottom:16px;">${Array(4).fill('<div class="clay skeleton skeleton-stat"></div>').join('')}</div>
+    <div class="grid grid-2">${Array(2).fill('<div class="clay skeleton skeleton-card"></div>').join('')}</div>
+  `;
+}
+
 async function enterApp(){
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
@@ -1760,7 +1917,7 @@ async function enterApp(){
   document.getElementById('topbar-avatar').textContent = initials(session.name);
   currentPage = canAccess(currentPage, session.role) ? currentPage : 'dashboard';
   renderNav();
-  document.getElementById('page-root').innerHTML = `<div class="empty-state" style="padding:60px 0;"><div class="ic">⏳</div>Loading live data from the API…</div>`;
+  document.getElementById('page-root').innerHTML = appShellSkeleton();
   try {
     await loadAllData();
     renderPage();
@@ -1776,13 +1933,14 @@ function renderPage(){
   const renderers = {
     dashboard: renderDashboard, researchers: renderResearchers, publications: renderPublications,
     collaborations: renderCollaborations, conferences: renderConferences, citations: renderCitations,
-    reports: renderReports, profile: renderProfile, review: renderReview,
+    profile: renderProfile, review: renderReview,
     institution: renderInstitution, users: renderUsers, audit: renderAudit,
     analysis: renderAnalysis,
   };
   root.innerHTML = (renderers[currentPage] || renderDashboard)();
   if(currentPage==='dashboard') drawDashboardChart();
   if(currentPage==='analysis') initAnalysisDashboard();
+  if(currentPage==='users' || currentPage==='audit') initTableBrowserOptions();
 }
 
 /* ============================================================
@@ -1790,30 +1948,34 @@ function renderPage(){
    ============================================================ */
 function renderDashboard(){
   const role = session.role;
+  const myResearcher = currentUser && currentUser.researcher
+    ? DB.researchers.find(r => r.name === currentUser.researcher.full_name)
+    : null;
+
   const statsByRole = {
     researcher: [
-      {label:'My Publications', val:24, delta:'+3 this qtr', up:true, ic:'▤', color:'var(--indigo)'},
-      {label:'Active Collaborations', val:11, delta:'+2 this qtr', up:true, ic:'⌘', color:'var(--teal)'},
-      {label:'Citations Received', val:812, delta:'+64 this qtr', up:true, ic:'❝', color:'var(--coral)'},
-      {label:'Upcoming Conferences', val:2, delta:'next in 5 days', up:true, ic:'▥', color:'var(--amber)'},
+      {label:'My Publications', val: scopedPublications().length, ic:'▤', color:'var(--indigo)'},
+      {label:'Active Collaborations', val: myResearcher ? myResearcher.collabs : 0, ic:'⌘', color:'var(--teal)'},
+      {label:'Citations Received', val: scopedCitations().reduce((s,c)=>s+c.citedBy,0), ic:'❝', color:'var(--coral)'},
+      {label:'Upcoming Conferences', val: DB.conferences.filter(c=>c.status==='Upcoming').length, ic:'▥', color:'var(--amber)'},
     ],
     institution_admin: [
-      {label:'Departments', val:9, delta:'stable', up:true, ic:'⌂', color:'var(--indigo)'},
-      {label:'Total Publications', val:1284, delta:'+112 this qtr', up:true, ic:'▤', color:'var(--teal)'},
-      {label:'Active Projects', val:37, delta:'+4 this qtr', up:true, ic:'⌘', color:'var(--coral)'},
-      {label:'Partner Institutions', val:22, delta:'+3 this qtr', up:true, ic:'▥', color:'var(--amber)'},
+      {label:'Departments', val: new Set(scopedResearchers().map(r=>r.dept).filter(Boolean)).size, ic:'⌂', color:'var(--indigo)'},
+      {label:'Total Publications', val: scopedPublications().length, ic:'▤', color:'var(--teal)'},
+      {label:'Active Projects', val: scopedProjects().filter(p=>p.status==='active').length, ic:'⌘', color:'var(--coral)'},
+      {label:'Institutions Platform-wide', val: institutionsCache.length, ic:'▥', color:'var(--amber)'},
     ],
     reviewer: [
-      {label:'Pending Reviews', val:DB.pendingReviews.length, delta:'2 due this week', up:false, ic:'✓', color:'var(--indigo)'},
-      {label:'Reviews Completed', val:58, delta:'+6 this qtr', up:true, ic:'▤', color:'var(--teal)'},
-      {label:'Avg. Turnaround', val:'4.2d', delta:'-0.6d', up:true, ic:'⌘', color:'var(--coral)'},
-      {label:'Flagged Submissions', val:1, delta:'needs attention', up:false, ic:'⛊', color:'var(--amber)'},
+      {label:'Pending Reviews', val: DB.pendingReviews.length, ic:'✓', color:'var(--indigo)'},
+      {label:'Published', val: DB.publications.filter(p=>p.status==='published').length, ic:'▤', color:'var(--teal)'},
+      {label:'Submitted for Review', val: DB.publications.filter(p=>p.status==='submitted').length, ic:'⌘', color:'var(--coral)'},
+      {label:'Drafts', val: DB.publications.filter(p=>p.status==='draft').length, ic:'⛊', color:'var(--amber)'},
     ],
     system_admin: [
-      {label:'Total Users', val:2148, delta:'+41 this qtr', up:true, ic:'⚉', color:'var(--indigo)'},
-      {label:'System Uptime', val:'99.98%', delta:'last 30d', up:true, ic:'▦', color:'var(--teal)'},
-      {label:'Security Events', val:3, delta:'1 unresolved', up:false, ic:'⛊', color:'var(--red)'},
-      {label:'Storage Used', val:'2.4 TB', delta:'of 5 TB', up:true, ic:'▥', color:'var(--amber)'},
+      {label:'Total Users', val: DB.users.length, ic:'⚉', color:'var(--indigo)'},
+      {label:'Active Accounts', val: DB.users.filter(u=>u.status==='Active').length, ic:'▦', color:'var(--teal)'},
+      {label:'Total Institutions', val: institutionsCache.length, ic:'▥', color:'var(--amber)'},
+      {label:'Total Publications', val: DB.publications.length, ic:'▤', color:'var(--coral)'},
     ],
   };
   const stats = statsByRole[role];
@@ -1833,7 +1995,6 @@ function renderDashboard(){
         <div class="clay stat-card">
           <div class="stat-top">
             <div class="stat-ic" style="background:${s.color}22; color:${s.color};">${s.ic}</div>
-            <span class="stat-delta ${s.up?'up':'down'}">${s.delta}</span>
           </div>
           <div class="stat-val">${s.val}</div>
           <div class="stat-label">${s.label}</div>
@@ -1844,14 +2005,14 @@ function renderDashboard(){
     <div class="grid grid-2" style="align-items:start;">
       <div class="clay card">
         <div class="card-head">
-          <div><h3>Publication activity</h3><div class="card-sub">Submissions by month, current cycle</div></div>
+          <div><h3>Publication activity</h3><div class="card-sub">Real publication dates, last 8 months with activity</div></div>
         </div>
         <div class="bar-chart" id="dash-chart"></div>
       </div>
 
       <div class="clay card">
         <div class="card-head">
-          <div><h3>Co-authorship network</h3><div class="card-sub">Live snapshot of active links</div></div>
+          <div><h3>Co-authorship network</h3><div class="card-sub">Real co-authorship links in your scope</div></div>
         </div>
         <svg id="dash-network" viewBox="0 0 320 150" style="width:100%; height:150px;"></svg>
       </div>
@@ -1859,48 +2020,63 @@ function renderDashboard(){
 
     <div class="grid grid-2" style="margin-top:16px; align-items:start;">
       <div class="clay card">
-        <div class="card-head"><h3>Recent activity</h3><span class="card-sub">Last 24 hours</span></div>
-        ${DB.auditLogs.slice(0,4).map(l => `
+        <div class="card-head"><h3>Recent activity</h3><span class="card-sub">${role==='system_admin' ? 'Live audit log' : 'System Admin only'}</span></div>
+        ${role !== 'system_admin' ? `<div class="empty-state" style="padding:20px 0;"><div class="ic">🔒</div>Audit logs are only visible to System Admin accounts.</div>` :
+          DB.auditLogs.length === 0 ? `<div class="empty-state" style="padding:20px 0;"><div class="ic">✓</div>No recent activity.</div>` :
+          DB.auditLogs.slice(0,4).map(l => `
           <div class="list-row">
             <div class="row-ic" style="background:${l.level==='error'?'var(--red)':l.level==='warning'?'var(--amber)':'var(--indigo)'}">${l.level==='error'?'!':l.level==='warning'?'△':'✓'}</div>
             <div><div class="row-title">${l.action}</div><div class="row-sub">${l.user}</div></div>
-            <div class="row-meta">${l.time.split(' ')[1]}</div>
+            <div class="row-meta">${(l.time||'').split(' ')[1]||''}</div>
           </div>
         `).join('')}
       </div>
 
       <div class="clay card">
         <div class="card-head"><h3>${role==='reviewer' ? 'Review queue' : 'Upcoming conferences'}</h3></div>
-        ${role==='reviewer' ? DB.pendingReviews.map(r => `
+        ${role==='reviewer' ? (DB.pendingReviews.length ? DB.pendingReviews.map(r => `
           <div class="list-row">
-            <div class="row-ic" style="background:var(--coral)">${r.author[0]}</div>
-            <div><div class="row-title">${r.title}</div><div class="row-sub">Submitted by ${r.author} · ${r.submitted}</div></div>
+            <div class="row-ic" style="background:var(--coral)">${(r.author||'?')[0]}</div>
+            <div><div class="row-title">${r.title}</div><div class="row-sub">Submitted by ${r.author} · ${r.submitted||'n/d'}</div></div>
           </div>
-        `).join('') : DB.conferences.slice(0,4).map(c => `
+        `).join('') : `<div class="empty-state" style="padding:20px 0;"><div class="ic">✓</div>Nothing pending review.</div>`)
+        : (DB.conferences.length ? DB.conferences.slice(0,4).map(c => `
           <div class="list-row">
             <div class="row-ic" style="background:var(--teal)">${c.name[0]}</div>
             <div><div class="row-title">${c.name}</div><div class="row-sub">${c.location} · ${c.date}</div></div>
             <div class="row-meta"><span class="badge badge-submitted">${c.status}</span></div>
           </div>
-        `).join('')}
+        `).join('') : `<div class="empty-state" style="padding:20px 0;"><div class="ic">▥</div>No conferences yet.</div>`)}
       </div>
     </div>
   `;
 }
 
 function drawDashboardChart(){
-  const data = [12,18,9,24,20,30,26,34];
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug'];
-  const max = Math.max(...data);
+  // Real publication counts by month, drawn from actual publication dates —
+  // scoped the same way the rest of the dashboard is (role-aware).
+  const pubs = scopedPublications();
+  const now = new Date();
+  const months = [];
+  for(let i=7; i>=0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push({ key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: d.toLocaleString(undefined,{month:'short'}) });
+  }
+  const counts = months.map(m => pubs.filter(p => (p.date||'').startsWith(m.key)).length);
+  const max = Math.max(1, ...counts);
   const el = document.getElementById('dash-chart');
   if(el){
-    el.innerHTML = data.map((v,i)=>`
-      <div class="bar-col">
-        <div class="bar" style="height:${(v/max*100)}%"></div>
-        <div class="bar-label">${months[i]}</div>
-      </div>`).join('');
+    if(pubs.length === 0){
+      el.innerHTML = `<div class="empty-state" style="padding:20px 0;"><div class="ic">▤</div>No publications with dates in this view yet.</div>`;
+    } else {
+      el.innerHTML = counts.map((v,i)=>`
+        <div class="bar-col">
+          <div class="bar" style="height:${(v/max*100)}%" title="${v} publication(s)"></div>
+          <div class="bar-label">${months[i].label}</div>
+        </div>`).join('');
+    }
   }
-  drawNetwork('dash-network', 320, 150, 16);
+  drawRealCollaborationNetwork('dash-network', pubs);
   drawNetwork('network-hero', 360, 170, 20);
 }
 
@@ -1927,6 +2103,93 @@ function drawNetwork(id, w, h, seedCount){
   svg.innerHTML = edges + dots;
 }
 
+/* Real co-authorship network — nodes/edges computed from actual publication
+   author lists (not random). Used specifically on the Analysis page, where
+   real data is available. node radius ~ publication count, edge thickness
+   ~ number of joint publications, laid out on a simple deterministic circle
+   so the same data always produces the same layout (no re-shuffling on
+   every re-render/resize). */
+function computeCoauthorGraph(pubs){
+  const nodeCounts = new Map();
+  const edgeCounts = new Map();
+  pubs.forEach(p => {
+    const authors = [...new Set(p.authors || [])];
+    authors.forEach(a => nodeCounts.set(a, (nodeCounts.get(a)||0) + 1));
+    for(let i=0;i<authors.length;i++){
+      for(let j=i+1;j<authors.length;j++){
+        const key = [authors[i], authors[j]].sort().join('__');
+        edgeCounts.set(key, (edgeCounts.get(key)||0) + 1);
+      }
+    }
+  });
+  return { nodeCounts, edgeCounts };
+}
+function drawRealCollaborationNetwork(id, pubs){
+  const svg = document.getElementById(id);
+  if(!svg) return;
+  const w = 500, h = 220;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const { nodeCounts, edgeCounts } = computeCoauthorGraph(pubs);
+  const names = Array.from(nodeCounts.entries()).sort((a,b)=>b[1]-a[1]).slice(0, 14).map(e=>e[0]);
+  if(names.length === 0){ svg.innerHTML = ''; return; }
+  const cx = w/2, cy = h/2, radius = Math.min(w,h)/2 - 26;
+  const palette = chartPalette();
+  const pos = {};
+  names.forEach((name, i) => {
+    const angle = (i / names.length) * Math.PI * 2 - Math.PI/2;
+    pos[name] = { x: cx + radius*Math.cos(angle), y: cy + radius*Math.sin(angle) };
+  });
+  let edgesSvg = '';
+  edgeCounts.forEach((count, key) => {
+    const [a, b] = key.split('__');
+    if(pos[a] && pos[b]){
+      const width = Math.min(4, 1 + count*0.7);
+      edgesSvg += `<line x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}" stroke="${palette[0]}" stroke-opacity="0.32" stroke-width="${width}"><title>${a} × ${b} — ${count} joint publication(s)</title></line>`;
+    }
+  });
+  let dotsSvg = names.map((name, i) => {
+    const p = pos[name];
+    const count = nodeCounts.get(name);
+    const r = Math.min(13, 4 + count*1.6);
+    const color = palette[i % palette.length];
+    return `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${color}" fill-opacity="0.88"><title>${name} — ${count} publication(s)</title></circle>`;
+  }).join('');
+  svg.innerHTML = edgesSvg + dotsSvg;
+}
+
+function viewResearcherProfile(researcherId){
+  const r = DB.researchers.find(x => x.id === researcherId);
+  if(!r) return;
+  const theirPubs = DB.publications.filter(p => (p.authors||[]).includes(lastName(r.name)));
+  openModal(`
+    <div class="modal-head"><h3>${r.name}</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div style="display:flex; gap:14px; align-items:center;">
+        ${r.avatarUrl
+          ? `<img src="${API_BASE_URL}${r.avatarUrl}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;">`
+          : `<div class="p-avatar" style="width:56px;height:56px;font-size:20px;">${initials(r.name)}</div>`}
+        <div>
+          <div class="row-sub">${r.dept} · ${r.inst}</div>
+          ${r.orcid ? `<a href="https://orcid.org/${r.orcid}" target="_blank" rel="noopener" style="font-size:12.5px; color:var(--indigo);">ORCID: ${r.orcid} ↗</a>` : ''}
+        </div>
+      </div>
+      ${r.bio ? `<div class="row-sub" style="line-height:1.6;">${r.bio}</div>` : ''}
+      <div class="tag-row">${(r.skillTags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}${(r.interestTags||[]).map(t=>`<span class="tag" style="background:var(--teal-tint,var(--clay));">${t}</span>`).join('')}</div>
+      <div style="display:flex; gap:24px; margin:6px 0;">
+        <div><b>${r.pubs}</b> <span class="row-sub">Publications</span></div>
+        <div><b>${r.collabs}</b> <span class="row-sub">Collaborators</span></div>
+      </div>
+      <hr style="border:none; border-top:1px solid var(--clay-lo); margin:4px 0;">
+      <b style="font-size:12px; color:var(--ink-soft); text-transform:uppercase;">Publications</b>
+      ${theirPubs.length
+        ? theirPubs.slice(0,8).map(p => `<div class="row-sub" style="margin-top:4px;">— ${p.title} ${p.date ? `(${p.date.slice(0,4)})` : ''}</div>`).join('')
+        : `<div class="row-sub">No publications on record for this researcher yet.</div>`}
+      <div class="modal-actions"><button class="btn btn-block" onclick="closeModal()">Close</button></div>
+      <button class="btn btn-ghost btn-block" onclick="copyPublicProfileLink('${r.id}')">🔗 Copy public profile link</button>
+    </div>
+  `);
+}
+
 /* ============================================================
    PAGE: RESEARCHERS
    ============================================================ */
@@ -1940,7 +2203,9 @@ function renderResearchers(){
       ${DB.researchers.map(r => `
         <div class="clay profile-card">
           <div class="profile-top">
-            <div class="p-avatar">${initials(r.name)}</div>
+            ${r.avatarUrl
+              ? `<img src="${API_BASE_URL}${r.avatarUrl}" class="p-avatar" style="object-fit:cover;">`
+              : `<div class="p-avatar">${initials(r.name)}</div>`}
             <div><div class="p-name">${r.name}</div><div class="p-dept">${r.dept} · ${r.inst}</div></div>
           </div>
           <div class="tag-row">${r.skills.map(s=>`<span class="tag">${s}</span>`).join('')}</div>
@@ -1948,7 +2213,7 @@ function renderResearchers(){
             <div><div class="stat-val" style="font-size:17px;">${r.pubs}</div><div class="stat-label">Publications</div></div>
             <div><div class="stat-val" style="font-size:17px;">${r.collabs}</div><div class="stat-label">Collaborators</div></div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="showToast('Opening profile for ${r.name.replace(/'/g,"")}…')">View full profile</button>
+          <button class="btn btn-ghost btn-sm" onclick="viewResearcherProfile('${r.id}')">View full profile</button>
         </div>
       `).join('')}
     </div>
@@ -1956,19 +2221,91 @@ function renderResearchers(){
 }
 
 function openModalAddResearcher(){
+  const isAdmin = session && (session.role === 'system_admin' || session.role === 'institution_admin');
   openModal(`
     <div class="modal-head"><h3>Add researcher</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
     <div class="field-grid">
-      <div class="field"><label>Full name</label><input type="text" placeholder="Dr. Jane Doe"></div>
-      <div class="field"><label>Department</label><input type="text" placeholder="Computer Science"></div>
-      <div class="field"><label>Institution</label><input type="text" placeholder="University name"></div>
-      <div class="field"><label>Skills (comma separated)</label><input type="text" placeholder="Machine Learning, NLP"></div>
+      <div class="row-sub" style="margin-bottom:4px;">
+        ${isAdmin
+          ? 'This creates a real account and emails the new researcher a real password-reset link so they set their own password — nothing to share manually.'
+          : 'This creates a real, immediately-usable account. Share the email and temporary password with them directly.'}
+      </div>
+      <div class="field"><label>Full name</label><input type="text" id="newres-name" placeholder="Dr. Jane Doe"></div>
+      <div class="field"><label>Email</label><input type="text" id="newres-email" placeholder="jane.doe@institution.edu"></div>
+      ${isAdmin ? `
+      <div class="field"><label>Department (optional)</label><input type="text" id="newres-dept" placeholder="e.g. Computer Science"></div>
+      <div class="field"><label>Academic title (optional)</label><input type="text" id="newres-title" placeholder="e.g. Associate Professor"></div>
+      ` : `
+      <div class="field"><label>Temporary password</label><input type="text" id="newres-password" class="mono" placeholder="At least 8 chars, 1 letter, 1 number" value="${generateTempPassword()}"></div>
+      `}
+      <div class="field"><label>Institution</label>
+        <select id="newres-institution"><option value="">— none —</option>${institutionsCache.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}</select>
+      </div>
+      <div id="newres-error" style="color:var(--red); font-size:13px;"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-block" onclick="closeModal(); showToast('Researcher profile added.', 'success');">Save profile</button>
+        <button class="btn btn-block" onclick="submitNewResearcher(${isAdmin})">Create account</button>
       </div>
     </div>
   `);
+}
+
+function generateTempPassword(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let out = '';
+  for(let i=0;i<10;i++) out += chars[Math.floor(Math.random()*chars.length)];
+  return out + '1a'; // guarantee it passes the letter+digit rule
+}
+
+async function submitNewResearcher(isAdmin){
+  const errEl = document.getElementById('newres-error');
+  const name = document.getElementById('newres-name').value.trim();
+  const email = document.getElementById('newres-email').value.trim();
+  if(!name){ errEl.textContent = 'Full name is required.'; return; }
+  if(!/^\S+@\S+\.\S+$/.test(email)){ errEl.textContent = 'Enter a valid email address.'; return; }
+
+  const institutionId = document.getElementById('newres-institution').value || null;
+
+  if(isAdmin){
+    errEl.textContent = '';
+    try{
+      await apiFetch('/admin/researchers', {
+        method: 'POST',
+        body: JSON.stringify({
+          email, full_name: name,
+          department: document.getElementById('newres-dept').value.trim() || null,
+          academic_title: document.getElementById('newres-title').value.trim() || null,
+          institution_id: institutionId,
+        }),
+      });
+      closeModal();
+      showToast(`Account created for ${name} — a password-reset link was emailed to ${email}.`, 'success');
+      await loadAllData();
+      renderPage();
+    }catch(err){
+      errEl.textContent = err.message;
+    }
+    return;
+  }
+
+  const password = document.getElementById('newres-password').value;
+  if(password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)){
+    errEl.textContent = 'Password must be at least 8 characters with a letter and a number.';
+    return;
+  }
+  errEl.textContent = '';
+  try{
+    await apiFetch('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, full_name: name, institution_id: institutionId }),
+    });
+    closeModal();
+    showToast(`Account created for ${name}. Share these credentials with them: ${email} / ${password}`, 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
 }
 
 /* ============================================================
@@ -1999,7 +2336,7 @@ function renderPublications(){
               <td>${p.authors.join(', ')}</td>
               <td>${p.date}</td>
               <td><span class="badge badge-${p.status}">${STATUS_LABEL[p.status]}</span></td>
-              <td><button class="btn-icon" style="width:32px;height:32px;" onclick="showToast('Opening ${p.id}…')">↗</button></td>
+              <td><button class="btn-icon" style="width:32px;height:32px;" onclick="viewPublicationDetail('${p.id}')" title="View details">↗</button></td>
             </tr>
           `).join('')}
           ${filtered.length===0 ? `<tr><td colspan="7"><div class="empty-state"><div class="ic">▤</div>No publications in this status yet.</div></td></tr>` : ''}
@@ -2007,6 +2344,50 @@ function renderPublications(){
       </table>
     </div>
   `;
+}
+
+function openForgotPassword(){
+  const prefill = (document.getElementById('auth-email').value || '').trim();
+  openModal(`
+    <div class="modal-head"><h3>Reset your password</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="field"><label>Email address</label><input type="text" id="fp-email" placeholder="you@institution.edu" value="${prefill}"></div>
+      <div id="fp-msg" style="font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" id="fp-submit-btn" onclick="submitForgotPassword()">Send reset link</button>
+      </div>
+      <div class="row-sub">We'll email a link to set a new password if that address has an account. The link opens a simple reset page served directly by the backend, works even without this app open, and expires after 30 minutes.</div>
+    </div>
+  `);
+}
+
+async function submitForgotPassword(){
+  const email = document.getElementById('fp-email').value.trim();
+  const msgEl = document.getElementById('fp-msg');
+  const btn = document.getElementById('fp-submit-btn');
+  if(!/^\S+@\S+\.\S+$/.test(email)){
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = 'Enter a valid email address.';
+    return;
+  }
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Sending…';
+  try{
+    const resp = await apiFetch('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = resp.message || 'If that email is registered, a reset link has been sent.';
+    btn.style.display = 'none';
+  }catch(err){
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = original;
+  }
 }
 
 function openModalUploadPublication(){
@@ -2018,8 +2399,41 @@ function openModalUploadPublication(){
         <select id="pub-type"><option>Journal Paper</option><option>Conference Paper</option><option>Book</option><option>Patent</option><option>Technical Report</option><option>Other</option></select>
       </div>
       <div class="field"><label>Venue</label><input type="text" id="pub-venue" placeholder="Journal / conference name"></div>
-      <div class="field"><label>DOI (optional)</label><input type="text" id="pub-doi" class="mono" placeholder="10.xxxx/xxxxx"></div>
+      <div class="field"><label>Abstract (optional)</label><textarea id="pub-abstract" rows="3" placeholder="A short summary of the publication" style="resize:vertical; font-family:inherit; font-size:14px; padding:10px 12px; border-radius:12px; border:none; background:var(--clay); box-shadow:var(--shadow-in);"></textarea></div>
+      <div class="field-grid" style="grid-template-columns:1fr 1fr 1fr; gap:10px;">
+        <div class="field"><label>Volume</label><input type="text" id="pub-volume" placeholder="e.g. 12"></div>
+        <div class="field"><label>Issue</label><input type="text" id="pub-issue" placeholder="e.g. 3"></div>
+        <div class="field"><label>Pages</label><input type="text" id="pub-pages" placeholder="e.g. 45-60"></div>
+      </div>
+      <div class="field">
+        <label>DOI (optional)
+          <span title="A DOI (Digital Object Identifier) is a permanent ID some publications have, e.g. 10.1038/nphys1170. Not every publication has one — reports, working papers, and many books don't. Leave this blank if you don't have one." style="cursor:help; color:var(--ink-soft); font-weight:400;">ⓘ what's this?</span>
+        </label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="pub-doi" class="mono" placeholder="10.xxxx/xxxxx — or leave blank" style="flex:1;">
+          <button type="button" class="btn btn-ghost btn-sm" style="white-space:nowrap;" onclick="lookupDoi()">🔍 Look up</button>
+        </div>
+        <div class="row-sub" style="margin-top:4px;">Don't know your DOI? Click "Look up" to search by the title above, or leave this blank — it's optional.</div>
+        <div id="doi-lookup-results" style="margin-top:8px;"></div>
+      </div>
       <div class="field"><label>Publication date (optional)</label><input type="date" id="pub-date"></div>
+      <div class="field">
+        <label>Co-authors (optional)</label>
+        <div id="pub-coauthor-list" class="clay" style="max-height:160px; overflow-y:auto; padding:8px; border-radius:12px;">
+          ${DB.researchers.filter(r => r.name !== session.name).map(r => `
+            <label style="display:flex; align-items:center; gap:8px; padding:6px 4px; font-size:13.5px; cursor:pointer;">
+              <input type="checkbox" value="${r.id}" class="pub-coauthor-checkbox">
+              ${r.name} <span style="color:var(--ink-faint); font-size:12px;">— ${r.dept}</span>
+            </label>
+          `).join('') || `<div style="font-size:13px; color:var(--ink-soft); padding:6px 4px;">No other researchers to add yet.</div>`}
+        </div>
+        <div class="row-sub" style="margin-top:4px;">You're automatically listed as the author — check anyone who co-authored this with you.</div>
+      </div>
+      <div class="field">
+        <label>Attach the paper (optional)</label>
+        <input type="file" id="pub-file" accept=".pdf,.doc,.docx">
+        <div class="row-sub" style="margin-top:4px;">PDF, DOC, or DOCX — up to 20MB. You can also add this later from the publication's detail view.</div>
+      </div>
       <div id="pub-error" style="color:var(--red); font-size:13px;"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
@@ -2030,11 +2444,225 @@ function openModalUploadPublication(){
   `);
 }
 
+async function lookupDoi(){
+  const title = document.getElementById('pub-title').value.trim();
+  const resultsEl = document.getElementById('doi-lookup-results');
+  if(!title){
+    resultsEl.innerHTML = `<div style="font-size:13px; color:var(--red);">Type a title above first, then click "Look up".</div>`;
+    return;
+  }
+  resultsEl.innerHTML = `<div style="font-size:13px; color:var(--ink-soft);">Searching CrossRef for matching publications…</div>`;
+  try{
+    const res = await fetch(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(title)}&rows=4`);
+    if(!res.ok) throw new Error('CrossRef lookup failed');
+    const data = await res.json();
+    const items = (data.message && data.message.items) || [];
+    if(items.length === 0){
+      resultsEl.innerHTML = `<div style="font-size:13px; color:var(--ink-soft);">No matches found. You can leave the DOI blank, or search manually at <a href="https://search.crossref.org" target="_blank" rel="noopener">search.crossref.org</a>.</div>`;
+      return;
+    }
+    resultsEl.innerHTML = `<div style="font-size:12px; color:var(--ink-soft); margin-bottom:6px;">Possible matches — click one to use its DOI:</div>` +
+      items.map((it, i) => {
+        const t = (it.title && it.title[0]) || 'Untitled';
+        const authors = (it.author || []).slice(0,3).map(a => a.family || a.name || '').filter(Boolean).join(', ');
+        const year = it['published-print'] ? it['published-print']['date-parts'][0][0]
+          : (it['published-online'] ? it['published-online']['date-parts'][0][0] : '');
+        const doi = it.DOI || '';
+        return `<div class="clay" style="padding:10px; border-radius:10px; margin-bottom:6px; cursor:pointer;" onclick="pickDoi('${doi.replace(/'/g,"\\'")}')">
+          <div style="font-size:13px; font-weight:600;">${t}</div>
+          <div style="font-size:12px; color:var(--ink-soft);">${authors}${year ? ' · ' + year : ''} · <span class="mono">${doi}</span></div>
+        </div>`;
+      }).join('') +
+      `<div style="font-size:12px; color:var(--ink-soft);">Not your publication? Leave the DOI field blank instead — it's optional.</div>`;
+  }catch(err){
+    resultsEl.innerHTML = `<div style="font-size:13px; color:var(--ink-soft);">Couldn't reach the lookup service right now. You can search manually at <a href="https://search.crossref.org" target="_blank" rel="noopener">search.crossref.org</a>, or just leave the DOI blank.</div>`;
+  }
+}
+
+function pickDoi(doi){
+  document.getElementById('pub-doi').value = doi;
+  document.getElementById('doi-lookup-results').innerHTML = `<div style="font-size:13px; color:var(--green);">✓ DOI filled in from CrossRef.</div>`;
+}
+
+/* ============================================================
+   PUBLICATION DETAIL — real full view: abstract, all authors,
+   file, DOI, and a real "who cites this" list computed from DB.citations.
+   ============================================================ */
+function canEditPublication(pub){
+  if(!currentUser) return false;
+  if(currentUser.role === 'system_admin') return true;
+  return pub.authorFullNames.includes(session.name);
+}
+
+function citingThisPublication(pubId){
+  return DB.citations.filter(c => c.pubId === pubId); // DB.citations is already "publications with a DOI + their citedBy count"; for a real reverse list we look at the raw edges below
+}
+
+function viewPublicationDetail(pubId){
+  const pub = DB.publications.find(p => p.id === pubId);
+  if(!pub) return;
+  const citedByEntries = (DB.citationEdges || []).filter(e => e.cited_publication_id === pubId);
+  openModal(`
+    <div class="modal-head"><h3 style="max-width:420px;">${pub.title}</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div><span class="badge badge-submitted">${STATUS_LABEL[pub.status]||pub.status}</span> <span style="font-size:12.5px; color:var(--ink-soft);">${pub.type}${pub.date ? ' · ' + pub.date : ''}</span></div>
+      <div><b>Authors:</b> ${pub.authorFullNames.join(', ') || '—'}</div>
+      ${pub.venue !== '—' ? `<div><b>Venue:</b> ${pub.venue}${pub.volume ? ', Vol. ' + pub.volume : ''}${pub.issue ? ', Issue ' + pub.issue : ''}${pub.pages ? ', pp. ' + pub.pages : ''}</div>` : ''}
+      ${pub.doi ? `<div><b>DOI:</b> <a href="https://doi.org/${pub.doi}" target="_blank" rel="noopener" class="mono" style="color:var(--indigo);">${pub.doi}</a></div>` : ''}
+      ${pub.abstract ? `<div><b>Abstract:</b><div class="row-sub" style="margin-top:4px; line-height:1.6;">${pub.abstract}</div></div>` : ''}
+
+      <div style="margin-top:6px;">
+        <b>Attached file:</b>
+        ${pub.fileName
+          ? `<a href="${API_BASE_URL}/publications/${pub.id}/file" target="_blank" style="color:var(--indigo);">📎 ${pub.fileName}</a>`
+          : `<span class="row-sub">No file attached.</span>`}
+        ${canEditPublication(pub) ? `<div style="margin-top:6px;"><input type="file" id="pub-detail-file" accept=".pdf,.doc,.docx" style="font-size:12.5px;"> <button class="btn btn-ghost btn-sm" onclick="uploadPublicationFile('${pub.id}')">${pub.fileName ? 'Replace file' : 'Attach file'}</button></div>` : ''}
+      </div>
+
+      <div style="margin-top:6px;">
+        <b>Cited by (${citedByEntries.length}):</b>
+        ${citedByEntries.length
+          ? citedByEntries.map(e => `<div class="row-sub" style="margin-top:2px;">— ${e.citingTitle}</div>`).join('')
+          : `<span class="row-sub">No recorded citations yet.</span>`}
+      </div>
+
+      <hr style="border:none; border-top:1px solid var(--clay-lo); margin:6px 0;">
+      <b style="font-size:12px; color:var(--ink-soft); text-transform:uppercase;">Cite this</b>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="copyCitation('${pub.id}','bibtex')">BibTeX</button>
+        <button class="btn btn-ghost btn-sm" onclick="copyCitation('${pub.id}','apa')">APA</button>
+        <button class="btn btn-ghost btn-sm" onclick="copyCitation('${pub.id}','mla')">MLA</button>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Close</button>
+        ${canEditPublication(pub) ? `<button class="btn btn-block" onclick="openModalEditPublication('${pub.id}')">Edit</button>` : ''}
+      </div>
+    </div>
+  `);
+}
+
+async function uploadPublicationFile(pubId){
+  const input = document.getElementById('pub-detail-file');
+  if(!input.files || !input.files[0]){ showToast('Choose a file first.', 'error'); return; }
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  try{
+    await apiUpload(`/publications/${pubId}/file`, fd);
+    showToast('File attached.', 'success');
+    await loadAllData();
+    viewPublicationDetail(pubId);
+  }catch(err){
+    showToast('Upload failed: ' + err.message, 'error');
+  }
+}
+
+function citationAuthorsFormatted(pub, style){
+  const names = pub.authorFullNames;
+  if(names.length === 0) return '';
+  if(style === 'bibtex') return names.join(' and ');
+  const formatted = names.map(n => {
+    const parts = n.trim().split(/\s+/);
+    const last = parts.pop();
+    return style === 'apa' ? `${last}, ${parts.map(p=>p[0]+'.').join(' ')}` : `${last}, ${parts.join(' ')}`;
+  });
+  if(formatted.length === 1) return formatted[0];
+  if(style === 'mla') return formatted[0] + (formatted.length > 1 ? ', et al.' : '');
+  return formatted.join(', ');
+}
+function buildCitation(pub, style){
+  const year = pub.date ? pub.date.slice(0,4) : 'n.d.';
+  if(style === 'bibtex'){
+    const key = (pub.authorFullNames[0] || 'anon').split(' ').pop().toLowerCase() + year;
+    return `@article{${key},\n  title={${pub.title}},\n  author={${citationAuthorsFormatted(pub,'bibtex')}},\n  journal={${pub.venue}},\n  year={${year}}${pub.doi ? `,\n  doi={${pub.doi}}` : ''}\n}`;
+  }
+  if(style === 'apa'){
+    return `${citationAuthorsFormatted(pub,'apa')} (${year}). ${pub.title}. ${pub.venue !== '—' ? pub.venue + '.' : ''}${pub.doi ? ' https://doi.org/' + pub.doi : ''}`;
+  }
+  // mla
+  return `${citationAuthorsFormatted(pub,'mla')}. "${pub.title}." ${pub.venue !== '—' ? pub.venue + ', ' : ''}${year}${pub.doi ? '. doi:' + pub.doi : ''}.`;
+}
+async function copyCitation(pubId, style){
+  const pub = DB.publications.find(p => p.id === pubId);
+  if(!pub) return;
+  const text = buildCitation(pub, style);
+  try{
+    await navigator.clipboard.writeText(text);
+    showToast(`${style.toUpperCase()} citation copied to clipboard.`, 'success');
+  }catch(e){
+    showToast(text, ''); // fallback: at least surface it if clipboard access is blocked
+  }
+}
+
+/* ============================================================
+   EDIT PUBLICATION
+   ============================================================ */
+function openModalEditPublication(pubId){
+  const pub = DB.publications.find(p => p.id === pubId);
+  if(!pub) return;
+  openModal(`
+    <div class="modal-head"><h3>Edit publication</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="field"><label>Title</label><input type="text" id="edit-pub-title" value="${pub.title.replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Venue</label><input type="text" id="edit-pub-venue" value="${pub.venue!=='—'?pub.venue:''}"></div>
+      <div class="field"><label>Abstract</label><textarea id="edit-pub-abstract" rows="3" style="resize:vertical; font-family:inherit; font-size:14px; padding:10px 12px; border-radius:12px; border:none; background:var(--clay); box-shadow:var(--shadow-in);">${pub.abstract||''}</textarea></div>
+      <div class="field-grid" style="grid-template-columns:1fr 1fr 1fr; gap:10px;">
+        <div class="field"><label>Volume</label><input type="text" id="edit-pub-volume" value="${pub.volume||''}"></div>
+        <div class="field"><label>Issue</label><input type="text" id="edit-pub-issue" value="${pub.issue||''}"></div>
+        <div class="field"><label>Pages</label><input type="text" id="edit-pub-pages" value="${pub.pages||''}"></div>
+      </div>
+      <div class="field"><label>DOI</label><input type="text" id="edit-pub-doi" class="mono" value="${pub.doi||''}"></div>
+      <div class="field"><label>Publication date</label><input type="date" id="edit-pub-date" value="${pub.date||''}"></div>
+      <div class="field"><label>Status</label>
+        <select id="edit-pub-status">
+          ${Object.keys(STATUS_LABEL).map(s => `<option value="${s}" ${s===pub.status?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}
+        </select>
+        <div class="row-sub">Only forward-moving transitions are allowed by the backend (e.g. draft → submitted → published → archived).</div>
+      </div>
+      <div id="edit-pub-error" style="color:var(--red); font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="viewPublicationDetail('${pub.id}')">Back</button>
+        <button class="btn btn-block" onclick="submitEditPublication('${pub.id}')">Save changes</button>
+      </div>
+    </div>
+  `);
+}
+async function submitEditPublication(pubId){
+  const errEl = document.getElementById('edit-pub-error');
+  const title = document.getElementById('edit-pub-title').value.trim();
+  if(!title){ errEl.textContent = 'Title cannot be blank.'; return; }
+  errEl.textContent = '';
+  try{
+    await apiFetch(`/publications/${pubId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title,
+        journal_or_venue: document.getElementById('edit-pub-venue').value.trim() || null,
+        abstract: document.getElementById('edit-pub-abstract').value.trim() || null,
+        volume: document.getElementById('edit-pub-volume').value.trim() || null,
+        issue: document.getElementById('edit-pub-issue').value.trim() || null,
+        pages: document.getElementById('edit-pub-pages').value.trim() || null,
+        doi: document.getElementById('edit-pub-doi').value.trim() || null,
+        publication_date: document.getElementById('edit-pub-date').value || null,
+        status: document.getElementById('edit-pub-status').value,
+      }),
+    });
+    showToast('Publication updated.', 'success');
+    await loadAllData();
+    renderPage();
+    viewPublicationDetail(pubId);
+  }catch(err){
+    errEl.textContent = err.message;
+  }
+}
+
 async function submitNewPublication(status){
   const errEl = document.getElementById('pub-error');
   const title = document.getElementById('pub-title').value.trim();
   if(!title){ errEl.textContent = 'Title is required.'; return; }
   const doi = document.getElementById('pub-doi').value.trim();
+  const coAuthorIds = Array.from(document.querySelectorAll('.pub-coauthor-checkbox:checked')).map(el => el.value);
+  const fileInput = document.getElementById('pub-file');
   errEl.textContent = '';
   try{
     const created = await apiFetch('/publications', {
@@ -2043,12 +2671,26 @@ async function submitNewPublication(status){
         title,
         publication_type: PUB_TYPE_VALUE[document.getElementById('pub-type').value] || 'other',
         journal_or_venue: document.getElementById('pub-venue').value.trim() || null,
+        abstract: document.getElementById('pub-abstract').value.trim() || null,
+        volume: document.getElementById('pub-volume').value.trim() || null,
+        issue: document.getElementById('pub-issue').value.trim() || null,
+        pages: document.getElementById('pub-pages').value.trim() || null,
         doi: doi || null,
         publication_date: document.getElementById('pub-date').value || null,
+        co_author_ids: coAuthorIds,
       }),
     });
     if(status === 'submitted'){
       await apiFetch(`/publications/${created.id}`, {method:'PUT', body: JSON.stringify({status:'submitted'})});
+    }
+    if(fileInput.files && fileInput.files[0]){
+      const fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      try{
+        await apiUpload(`/publications/${created.id}/file`, fd);
+      }catch(fileErr){
+        showToast('Publication saved, but the file upload failed: ' + fileErr.message, 'error');
+      }
     }
     closeModal();
     showToast('Publication saved.', 'success');
@@ -2145,27 +2787,234 @@ async function submitNewProject(){
    PAGE: CONFERENCES
    ============================================================ */
 function renderConferences(){
+  const isAdmin = session && (session.role === 'system_admin' || session.role === 'institution_admin');
   return `
     <div class="page-head">
       <div><div class="page-eyebrow">Conference management</div><h2>Conferences</h2><p>Registrations, presentations and participation history.</p></div>
-      <button class="btn" onclick="openModalRegisterConference()">+ Register for event</button>
+      <div style="display:flex; gap:10px;">
+        ${isAdmin ? `<button class="btn btn-ghost" onclick="openModalAddConference()">+ Add conference</button>` : ''}
+        <button class="btn" onclick="openModalRegisterConference()">+ Register for event</button>
+      </div>
     </div>
+    ${DB.conferences.length === 0 ? `<div class="empty-state"><div class="ic">🗓️</div>No conferences yet.${isAdmin ? ' Use "Add conference" to create one.' : ''}</div>` : ''}
     <div class="grid grid-2">
       ${DB.conferences.map(c => `
         <div class="clay card">
           <div class="card-head">
-            <div><h3>${c.name}</h3><div class="card-sub">${c.location} · ${c.date}</div></div>
+            <div><h3>${c.name}</h3><div class="card-sub">${c.location}${c.date ? ' · ' + c.date : ''}${c.endDate && c.endDate !== c.date ? ' – ' + c.endDate : ''}</div></div>
             <span class="badge badge-submitted">${c.status}</span>
           </div>
           <div class="tag-row"><span class="tag">Role: ${c.role}</span></div>
-          <div style="margin-top:14px; display:flex; gap:10px;">
-            <button class="btn btn-ghost btn-sm" onclick="showToast('Viewing schedule for ${c.id}…')">View schedule</button>
-            <button class="btn btn-sm" onclick="showToast('Added to calendar.', 'success')">Add to calendar</button>
+          ${c.website ? `<div style="margin-top:8px; font-size:13px;"><a href="${c.website}" target="_blank" rel="noopener" style="color:var(--indigo);">${c.website}</a></div>` : ''}
+          <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="viewConferenceSchedule('${c.id}')">View schedule</button>
+            <button class="btn btn-sm" onclick="downloadConferenceIcs('${c.id}')">Add to calendar</button>
+            ${c.myParticipationId ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="cancelConferenceRegistration('${c.myParticipationId}','${c.id}')">Cancel registration</button>` : ''}
+            ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openModalEditConference('${c.id}')">Edit</button>` : ''}
+            ${session.role === 'system_admin' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteConference('${c.id}','${c.name.replace(/'/g,"\\'")}')">Delete conference</button>` : ''}
           </div>
         </div>
       `).join('')}
     </div>
   `;
+}
+
+function openModalEditConference(confId){
+  const c = DB.conferences.find(x => x.id === confId);
+  if(!c) return;
+  openModal(`
+    <div class="modal-head"><h3>Edit conference</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="field"><label>Conference name</label><input type="text" id="editconf-name" value="${c.name.replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Location</label><input type="text" id="editconf-location" value="${(c.location||'').replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Website</label><input type="text" id="editconf-website" value="${(c.website||'').replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Start date</label><input type="date" id="editconf-start" value="${c.date||''}"></div>
+      <div class="field"><label>End date</label><input type="date" id="editconf-end" value="${c.endDate||''}"></div>
+      <div id="editconf-error" style="color:var(--red); font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" onclick="submitEditConference('${c.id}')">Save changes</button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitEditConference(confId){
+  const errEl = document.getElementById('editconf-error');
+  const name = document.getElementById('editconf-name').value.trim();
+  if(!name){ errEl.textContent = 'Conference name is required.'; return; }
+  errEl.textContent = '';
+  try{
+    await apiFetch(`/conferences/${confId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name,
+        location: document.getElementById('editconf-location').value.trim() || null,
+        website: document.getElementById('editconf-website').value.trim() || null,
+        start_date: document.getElementById('editconf-start').value || null,
+        end_date: document.getElementById('editconf-end').value || null,
+      }),
+    });
+    closeModal();
+    showToast('Conference updated.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
+}
+
+async function deleteConference(confId, name){
+  if(!confirm(`Permanently delete "${name}"? This also removes everyone's registrations for it. This can't be undone.`)) return;
+  try{
+    await apiFetch(`/conferences/${confId}`, { method: 'DELETE' });
+    showToast('Conference deleted.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    showToast('Could not delete: ' + err.message, 'error');
+  }
+}
+
+async function cancelConferenceRegistration(participationId, confId){
+  if(!confirm('Cancel your registration for this conference?')) return;
+  try{
+    await apiFetch(`/conference-participations/${participationId}`, { method: 'DELETE' });
+    showToast('Registration cancelled.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    showToast('Could not cancel: ' + err.message, 'error');
+  }
+}
+
+async function viewConferenceSchedule(confId){
+  const conf = DB.conferences.find(c => c.id === confId);
+  if(!conf) return;
+  openModal(`
+    <div class="modal-head"><h3>${conf.name}</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="row-sub">${conf.location}${conf.date ? ' · ' + conf.date : ''}${conf.endDate && conf.endDate !== conf.date ? ' – ' + conf.endDate : ''}</div>
+      ${conf.website ? `<div><a href="${conf.website}" target="_blank" rel="noopener" style="color:var(--indigo); font-size:13.5px;">${conf.website} ↗</a></div>` : ''}
+      <hr style="border:none; border-top:1px solid var(--clay-lo); margin:6px 0;">
+      <h4 style="font-size:13px; margin:0; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em;">Registered participants</h4>
+      <div id="conf-participants-list" style="font-size:13.5px; color:var(--ink-soft);">Loading real registrations…</div>
+    </div>
+  `);
+  try{
+    const participations = await apiFetch(`/conference-participations?conference_id=${conf.id}`);
+    const listEl = document.getElementById('conf-participants-list');
+    if(!listEl) return; // modal closed before this resolved
+    if(participations.length === 0){
+      listEl.innerHTML = `No one has registered for this conference yet. Be the first — use "Register for event".`;
+      return;
+    }
+    listEl.innerHTML = participations.map(p => {
+      const researcher = DB.researchers.find(r => r.id === p.researcher_id);
+      const name = researcher ? researcher.name : 'Unknown researcher';
+      return `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--clay-lo);">
+        <div><b>${name}</b>${p.presentation_title ? `<div style="font-size:12px; color:var(--ink-faint);">Presenting: ${p.presentation_title}</div>` : ''}</div>
+        <span class="badge badge-submitted" style="text-transform:capitalize;">${p.role}</span>
+      </div>`;
+    }).join('');
+  }catch(err){
+    const listEl = document.getElementById('conf-participants-list');
+    if(listEl) listEl.innerHTML = `Could not load registrations: ${err.message}`;
+  }
+}
+
+function icsEscape(text){
+  return String(text || '').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+function icsDate(dateStr){
+  // Conference dates are day-only (no time-of-day tracked by the backend),
+  // so this generates a proper all-day VALUE=DATE event rather than
+  // fabricating a fake start time.
+  return (dateStr || '').replace(/-/g,'');
+}
+function downloadConferenceIcs(confId){
+  const conf = DB.conferences.find(c => c.id === confId);
+  if(!conf){ showToast('Conference not found.', 'error'); return; }
+  if(!conf.date){ showToast('This conference has no date on file yet.', 'error'); return; }
+
+  const start = icsDate(conf.date);
+  // .ics all-day DTEND is exclusive, so add one day past the real end date
+  // (or the start date if there's no separate end) so the event correctly
+  // covers every real day of the conference, not one short.
+  const endBase = conf.endDate || conf.date;
+  const endDateObj = new Date(endBase + 'T00:00:00');
+  endDateObj.setDate(endDateObj.getDate() + 1);
+  const end = icsDate(endDateObj.toISOString().slice(0,10));
+
+  const uid = `${conf.id}@researchsphere.local`;
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//ResearchSphere//Conference Export//EN',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${start}`,
+    `DTEND;VALUE=DATE:${end}`,
+    `SUMMARY:${icsEscape(conf.name)}`,
+    `LOCATION:${icsEscape(conf.location)}`,
+    conf.website ? `URL:${icsEscape(conf.website)}` : '',
+    `DESCRIPTION:${icsEscape('Role: ' + conf.role + (conf.website ? ' — ' + conf.website : ''))}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${conf.name.replace(/[^a-z0-9]+/gi,'_').slice(0,60)}.ics`;
+  link.click();
+  showToast('Calendar file downloaded — open it to add the event to Google Calendar, Outlook, or Apple Calendar.', 'success');
+}
+
+function openModalAddConference(){
+  openModal(`
+    <div class="modal-head"><h3>Add conference</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="field"><label>Conference name</label><input type="text" id="newconf-name" placeholder="e.g. International Conference on Machine Learning"></div>
+      <div class="field"><label>Location</label><input type="text" id="newconf-location" placeholder="e.g. Vienna, Austria"></div>
+      <div class="field"><label>Website (optional)</label><input type="text" id="newconf-website" placeholder="https://..."></div>
+      <div class="field"><label>Start date</label><input type="date" id="newconf-start"></div>
+      <div class="field"><label>End date (optional)</label><input type="date" id="newconf-end"></div>
+      <div id="newconf-error" style="color:var(--red); font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" onclick="submitNewConference()">Add conference</button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitNewConference(){
+  const errEl = document.getElementById('newconf-error');
+  const name = document.getElementById('newconf-name').value.trim();
+  if(!name){ errEl.textContent = 'Conference name is required.'; return; }
+  errEl.textContent = '';
+  try{
+    await apiFetch('/conferences', {
+      method:'POST',
+      body: JSON.stringify({
+        name,
+        location: document.getElementById('newconf-location').value.trim() || null,
+        website: document.getElementById('newconf-website').value.trim() || null,
+        start_date: document.getElementById('newconf-start').value || null,
+        end_date: document.getElementById('newconf-end').value || null,
+      }),
+    });
+    closeModal();
+    showToast('Conference added — everyone can now see and register for it.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
 }
 
 function openModalRegisterConference(){
@@ -2288,51 +3137,17 @@ async function submitNewCitation(){
 /* ============================================================
    PAGE: REPORTS & EXPORT
    ============================================================ */
-function renderReports(){
-  return `
-    <div class="page-head">
-      <div><div class="page-eyebrow">Reports & analytics</div><h2>Reports & export</h2><p>Publication, collaboration and institutional analytics.</p></div>
-      <div style="display:flex; gap:10px;">
-        <button class="btn btn-ghost" onclick="showToast('Excel export generated.', 'success')">⇩ Export Excel</button>
-        <button class="btn" onclick="showToast('PDF export generated.', 'success')">⇩ Export PDF</button>
-      </div>
-    </div>
-    <div class="grid grid-2">
-      <div class="clay card">
-        <div class="card-head"><h3>Publications by type</h3></div>
-        <div class="bar-chart" id="report-chart-1"></div>
-      </div>
-      <div class="clay card">
-        <div class="card-head"><h3>Collaboration growth (YoY)</h3></div>
-        <div class="bar-chart" id="report-chart-2"></div>
-      </div>
-    </div>
-    <div class="grid grid-3" style="margin-top:16px;">
-      <div class="clay card"><h3 style="margin-bottom:10px;">Publication status mix</h3>
-        ${['draft','submitted','published','archived'].map(s=>{
-          const count = DB.publications.filter(p=>p.status===s).length;
-          const pct = Math.round(count/DB.publications.length*100)||0;
-          return `<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>${STATUS_LABEL[s]}</span><span class="mono">${pct}%</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`;
-        }).join('')}
-      </div>
-      <div class="clay card"><h3 style="margin-bottom:10px;">Top institutions</h3>
-        ${[...new Set(DB.researchers.map(r=>r.inst))].slice(0,5).map(i=>`<div class="list-row"><div class="row-title">${i}</div></div>`).join('')}
-      </div>
-      <div class="clay card"><h3 style="margin-bottom:10px;">Available reports</h3>
-        ${['Publication Report','Research Report','Collaboration Report','Institution Report'].map(r=>`
-          <div class="list-row"><div class="row-ic" style="background:var(--indigo)">▤</div><div class="row-title">${r}</div><button class="btn-icon" style="width:32px;height:32px;" onclick="showToast('${r} downloaded.', 'success')">⇩</button></div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
-
 /* ============================================================
    PAGE: PROFILE
    ============================================================ */
 async function submitProfileUpdate(){
   const errEl = document.getElementById('profile-error');
   errEl.textContent = '';
+  const orcidRaw = document.getElementById('profile-orcid').value.trim();
+  if(orcidRaw && !/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(orcidRaw)){
+    errEl.textContent = 'ORCID iD must look like 0000-0000-0000-0000.';
+    return;
+  }
   try{
     const updated = await apiFetch('/researchers/me', {
       method:'PUT',
@@ -2340,6 +3155,7 @@ async function submitProfileUpdate(){
         full_name: document.getElementById('profile-name').value.trim(),
         department: document.getElementById('profile-dept').value.trim() || null,
         academic_title: document.getElementById('profile-title').value.trim() || null,
+        orcid_id: orcidRaw || null,
       }),
     });
     currentUser.researcher = updated;
@@ -2352,6 +3168,95 @@ async function submitProfileUpdate(){
   }
 }
 
+async function verifyOrcid(){
+  const resultEl = document.getElementById('orcid-verify-result');
+  const orcid = document.getElementById('profile-orcid').value.trim();
+  if(!/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(orcid)){
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = 'That doesn\'t look like a valid ORCID iD (format: 0000-0000-0000-0000).';
+    return;
+  }
+  resultEl.style.color = 'var(--ink-soft)';
+  resultEl.textContent = 'Checking ORCID\'s public registry…';
+  try{
+    const res = await fetch(`https://pub.orcid.org/v3.0/${orcid}/person`, { headers: { 'Accept': 'application/json' } });
+    if(!res.ok) throw new Error('not found');
+    const data = await res.json();
+    const given = data.name && data.name['given-names'] ? data.name['given-names'].value : '';
+    const family = data.name && data.name['family-name'] ? data.name['family-name'].value : '';
+    const name = (given + ' ' + family).trim();
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = name ? `✓ Verified — this ORCID belongs to "${name}" on orcid.org.` : '✓ This ORCID iD exists on orcid.org.';
+  }catch(err){
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = 'Could not verify — this ORCID iD may not exist, or ORCID\'s registry is unreachable right now.';
+  }
+}
+
+async function submitAvatarUpload(){
+  const input = document.getElementById('avatar-file-input');
+  if(!input.files || !input.files[0]){ showToast('Choose an image first.', 'error'); return; }
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  try{
+    const updated = await apiUpload('/researchers/me/avatar', fd);
+    currentUser.researcher = updated;
+    showToast('Profile photo updated.', 'success');
+    renderPage();
+  }catch(err){
+    showToast('Upload failed: ' + err.message, 'error');
+  }
+}
+
+async function submitProfileTags(){
+  const errEl = document.getElementById('tags-error');
+  errEl.textContent = '';
+  const skills = document.getElementById('profile-skills').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const interests = document.getElementById('profile-interests').value.split(',').map(s=>s.trim()).filter(Boolean);
+  try{
+    const updated = await apiFetch('/researchers/me/tags', {
+      method: 'PUT',
+      body: JSON.stringify({ skills, interests }),
+    });
+    currentUser.researcher = updated;
+    showToast('Skills & interests updated.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
+}
+
+async function submitChangePassword(){
+  const errEl = document.getElementById('pw-error');
+  const current = document.getElementById('pw-current').value;
+  const next = document.getElementById('pw-new').value;
+  const confirm = document.getElementById('pw-confirm').value;
+  errEl.style.color = 'var(--red)';
+  if(!current){ errEl.textContent = 'Enter your current password.'; return; }
+  if(next.length < 8 || !/[A-Za-z]/.test(next) || !/\d/.test(next)){
+    errEl.textContent = 'New password must be at least 8 characters and include a letter and a number.';
+    return;
+  }
+  if(next !== confirm){ errEl.textContent = 'New password and confirmation don\'t match.'; return; }
+  errEl.textContent = '';
+  try{
+    const resp = await apiFetch('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ current_password: current, new_password: next }),
+    });
+    document.getElementById('pw-current').value = '';
+    document.getElementById('pw-new').value = '';
+    document.getElementById('pw-confirm').value = '';
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = resp.message || 'Password updated.';
+    showToast('Password updated.', 'success');
+  }catch(err){
+    errEl.style.color = 'var(--red)';
+    errEl.textContent = err.message;
+  }
+}
+
 function renderProfile(){
   return `
     <div class="page-head">
@@ -2360,14 +3265,32 @@ function renderProfile(){
     <div class="grid grid-2">
       <div class="clay card">
         <div class="profile-top" style="margin-bottom:16px;">
-          <div class="p-avatar" style="width:64px;height:64px;font-size:20px;">${initials(session.name)}</div>
-          <div><div class="p-name" style="font-size:16px;">${session.name}</div><div class="p-dept">${ROLE_LABELS[session.role]} · ${session.email}</div></div>
+          ${currentUser && currentUser.researcher && currentUser.researcher.avatar_url
+            ? `<img src="${API_BASE_URL}${currentUser.researcher.avatar_url}" class="p-avatar" style="width:64px;height:64px;object-fit:cover;">`
+            : `<div class="p-avatar" style="width:64px;height:64px;font-size:20px;">${initials(session.name)}</div>`}
+          <div>
+            <div class="p-name" style="font-size:16px;">${session.name}</div>
+            <div class="p-dept">${ROLE_LABELS[session.role]} · ${session.email}</div>
+            ${currentUser && currentUser.researcher ? `
+              <div style="margin-top:6px;">
+                <input type="file" id="avatar-file-input" accept=".jpg,.jpeg,.png,.webp" style="font-size:12px; max-width:220px;">
+                <button class="btn btn-ghost btn-sm" onclick="submitAvatarUpload()">Upload photo</button>
+              </div>` : ''}
+          </div>
         </div>
         <div class="field-grid">
           <div class="field"><label>Full name</label><input type="text" id="profile-name" value="${session.name}" ${currentUser && currentUser.researcher ? '' : 'disabled'}></div>
           <div class="field"><label>Email</label><input type="email" value="${session.email}" disabled></div>
           <div class="field"><label>Department</label><input type="text" id="profile-dept" value="${(currentUser && currentUser.researcher && currentUser.researcher.department) || ''}" placeholder="e.g. Computer Science" ${currentUser && currentUser.researcher ? '' : 'disabled'}></div>
           <div class="field"><label>Academic title</label><input type="text" id="profile-title" value="${(currentUser && currentUser.researcher && currentUser.researcher.academic_title) || ''}" placeholder="e.g. Associate Professor" ${currentUser && currentUser.researcher ? '' : 'disabled'}></div>
+          <div class="field">
+            <label>ORCID iD <span title="A permanent, unique researcher ID — e.g. 0000-0002-1825-0097. Get one free at orcid.org." style="cursor:help; color:var(--ink-soft); font-weight:400;">ⓘ</span></label>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="profile-orcid" class="mono" value="${(currentUser && currentUser.researcher && currentUser.researcher.orcid_id) || ''}" placeholder="0000-0000-0000-0000" style="flex:1;" ${currentUser && currentUser.researcher ? '' : 'disabled'}>
+              ${currentUser && currentUser.researcher ? `<button type="button" class="btn btn-ghost btn-sm" onclick="verifyOrcid()">Verify</button>` : ''}
+            </div>
+            <div id="orcid-verify-result" style="font-size:12.5px; margin-top:4px;"></div>
+          </div>
           <div id="profile-error" style="color:var(--red); font-size:13px;"></div>
           ${currentUser && currentUser.researcher
             ? `<button class="btn" onclick="submitProfileUpdate()">Save changes</button>`
@@ -2375,12 +3298,27 @@ function renderProfile(){
         </div>
       </div>
       <div class="clay card">
+        <h3 style="margin-bottom:4px;">Skills & research interests</h3>
+        <p class="row-sub" style="margin-bottom:12px;">Shown on your Researchers card and used in Collaboration matching.</p>
+        <div class="field-grid">
+          <div class="field"><label>Skills (comma separated)</label><input type="text" id="profile-skills" value="${((currentUser && currentUser.researcher && currentUser.researcher.skill_names) || []).join(', ')}" placeholder="e.g. Machine Learning, Python" ${currentUser && currentUser.researcher ? '' : 'disabled'}></div>
+          <div class="field"><label>Research interests (comma separated)</label><input type="text" id="profile-interests" value="${((currentUser && currentUser.researcher && currentUser.researcher.interest_names) || []).join(', ')}" placeholder="e.g. NLP, Climate Science" ${currentUser && currentUser.researcher ? '' : 'disabled'}></div>
+          <div id="tags-error" style="color:var(--red); font-size:13px;"></div>
+          ${currentUser && currentUser.researcher
+            ? `<button class="btn btn-ghost" onclick="submitProfileTags()">Save tags</button>`
+            : `<div class="row-sub">Only accounts with a researcher profile can set tags.</div>`}
+        </div>
+      </div>
+      <div class="clay card">
         <h3 style="margin-bottom:12px;">Account security</h3>
         <div class="field-grid">
-          <div class="field"><label>New password</label><input type="password" placeholder="••••••••" disabled></div>
-          <div class="field"><label>Confirm password</label><input type="password" placeholder="••••••••" disabled></div>
-          <button class="btn btn-ghost" disabled title="Not exposed by the current API">Update password</button>
-          <div class="row-sub">Password change isn't exposed by the backend API yet.</div>
+          <div class="field"><label>Current password</label><input type="password" id="pw-current" placeholder="••••••••" autocomplete="current-password"></div>
+          <div class="field"><label>New password</label><input type="password" id="pw-new" placeholder="At least 8 characters, 1 letter, 1 number" autocomplete="new-password" oninput="updatePasswordStrength('pw-new','pw-new-strength')">
+            <div id="pw-new-strength" style="display:none; margin-top:6px;"></div>
+          </div>
+          <div class="field"><label>Confirm new password</label><input type="password" id="pw-confirm" placeholder="••••••••" autocomplete="new-password"></div>
+          <div id="pw-error" style="color:var(--red); font-size:13px;"></div>
+          <button class="btn btn-ghost" onclick="submitChangePassword()">Update password</button>
         </div>
         <hr style="border:none; border-top:1px solid var(--clay-lo); margin:18px 0;">
         <div style="display:flex; align-items:center; justify-content:space-between;">
@@ -2419,23 +3357,142 @@ function renderReview(){
    PAGE: INSTITUTION (institution admin)
    ============================================================ */
 function renderInstitution(){
+  const isSystemAdmin = session && session.role === 'system_admin';
+  const stats = institutionsCache.map(inst => {
+    const researchers = DB.researchers.filter(r => r.inst === inst.name);
+    const pubs = DB.publications.filter(p => p.inst === inst.name);
+    const activeProjects = DB.projects.filter(p => p.inst === inst.name && p.status === 'active');
+    return { inst, researcherCount: researchers.length, pubCount: pubs.length, activeProjectCount: activeProjects.length };
+  });
+
   return `
     <div class="page-head">
-      <div><div class="page-eyebrow">Institution management</div><h2>Institution overview</h2><p>Departments, faculty and institutional partnerships.</p></div>
-      <button class="btn" onclick="showToast('Partnership invite sent.', 'success')">+ Invite partner institution</button>
+      <div><div class="page-eyebrow">Institution management</div><h2>Institutions</h2><p>Every institution on the platform, with real researcher, publication, and project counts pulled live from the database.</p></div>
+      <button class="btn" onclick="openModalAddInstitution()">+ Add institution</button>
     </div>
+    ${stats.length === 0 ? `<div class="empty-state"><div class="ic">⌂</div>No institutions yet. Use "+ Add institution" to create the first one.</div>` : ''}
     <div class="grid grid-3">
-      ${['Computer Science','Bioinformatics','Materials Science','Physics','Public Health','Robotics'].map((d,i)=>`
+      ${stats.map(s => `
         <div class="clay card">
-          <div class="card-head"><h3>${d}</h3></div>
-          <div class="stat-val" style="font-size:20px;">${12+i*4}</div>
-          <div class="stat-label">Active researchers</div>
-          <div class="progress-track" style="margin-top:12px;"><div class="progress-fill" style="width:${40+i*8}%"></div></div>
-          <div class="card-sub" style="margin-top:6px;">${40+i*8}% publication target reached</div>
+          <div class="card-head">
+            <div>
+              <h3>${s.inst.name}</h3>
+              <div class="card-sub">${s.inst.institution_type || 'Type not set'}${s.inst.country ? ' · ' + s.inst.country : ''}</div>
+            </div>
+            <button class="btn-icon" style="width:32px;height:32px;" onclick="openModalEditInstitution('${s.inst.id}')" title="Edit institution">✎</button>
+          </div>
+          ${s.inst.website ? `<div style="font-size:12.5px; margin-top:2px;"><a href="${s.inst.website}" target="_blank" rel="noopener" style="color:var(--indigo);">${s.inst.website} ↗</a></div>` : ''}
+          <div style="display:flex; gap:18px; margin-top:14px;">
+            <div><div class="stat-val" style="font-size:20px;">${s.researcherCount}</div><div class="stat-label">Researchers</div></div>
+            <div><div class="stat-val" style="font-size:20px;">${s.pubCount}</div><div class="stat-label">Publications</div></div>
+            <div><div class="stat-val" style="font-size:20px;">${s.activeProjectCount}</div><div class="stat-label">Active projects</div></div>
+          </div>
+          ${isSystemAdmin ? `<button class="btn btn-ghost btn-sm" style="margin-top:14px; color:var(--red);" onclick="deleteInstitution('${s.inst.id}','${s.inst.name.replace(/'/g,"\\'")}')">Delete institution</button>` : ''}
         </div>
       `).join('')}
     </div>
   `;
+}
+
+function openModalAddInstitution(){
+  openModal(`
+    <div class="modal-head"><h3>Add institution</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="field"><label>Name</label><input type="text" id="newinst-name" placeholder="e.g. IIT Ahmedabad"></div>
+      <div class="field"><label>Type</label>
+        <select id="newinst-type"><option value="">— unspecified —</option><option>University</option><option>Research Institute</option><option>Government Laboratory</option><option>Academic Publisher</option><option>Funding Organization</option></select>
+      </div>
+      <div class="field"><label>Country</label><input type="text" id="newinst-country" placeholder="e.g. India"></div>
+      <div class="field"><label>Website (optional)</label><input type="text" id="newinst-website" placeholder="https://..."></div>
+      <div id="newinst-error" style="color:var(--red); font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" onclick="submitNewInstitution()">Add institution</button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitNewInstitution(){
+  const errEl = document.getElementById('newinst-error');
+  const name = document.getElementById('newinst-name').value.trim();
+  if(!name){ errEl.textContent = 'Institution name is required.'; return; }
+  errEl.textContent = '';
+  try{
+    await apiFetch('/institutions', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        institution_type: document.getElementById('newinst-type').value || null,
+        country: document.getElementById('newinst-country').value.trim() || null,
+        website: document.getElementById('newinst-website').value.trim() || null,
+      }),
+    });
+    closeModal();
+    showToast('Institution added.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
+}
+
+function openModalEditInstitution(instId){
+  const inst = institutionsCache.find(i => i.id === instId);
+  if(!inst) return;
+  const types = ['University','Research Institute','Government Laboratory','Academic Publisher','Funding Organization'];
+  openModal(`
+    <div class="modal-head"><h3>Edit institution</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="field"><label>Name</label><input type="text" id="editinst-name" value="${inst.name.replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Type</label>
+        <select id="editinst-type"><option value="">— unspecified —</option>${types.map(t=>`<option ${t===inst.institution_type?'selected':''}>${t}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Country</label><input type="text" id="editinst-country" value="${(inst.country||'').replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Website</label><input type="text" id="editinst-website" value="${(inst.website||'').replace(/"/g,'&quot;')}"></div>
+      <div id="editinst-error" style="color:var(--red); font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" onclick="submitEditInstitution('${inst.id}')">Save changes</button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitEditInstitution(instId){
+  const errEl = document.getElementById('editinst-error');
+  const name = document.getElementById('editinst-name').value.trim();
+  if(!name){ errEl.textContent = 'Institution name is required.'; return; }
+  errEl.textContent = '';
+  try{
+    await apiFetch(`/institutions/${instId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name,
+        institution_type: document.getElementById('editinst-type').value || null,
+        country: document.getElementById('editinst-country').value.trim() || null,
+        website: document.getElementById('editinst-website').value.trim() || null,
+      }),
+    });
+    closeModal();
+    showToast('Institution updated.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
+}
+
+async function deleteInstitution(instId, name){
+  if(!confirm(`Delete "${name}"? This only works if no researchers or projects still reference it.`)) return;
+  try{
+    await apiFetch(`/institutions/${instId}`, { method: 'DELETE' });
+    showToast('Institution deleted.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    showToast('Could not delete: ' + err.message, 'error');
+  }
 }
 
 /* ============================================================
@@ -2446,7 +3503,7 @@ function renderUsers(){
   return `
     <div class="page-head">
       <div><div class="page-eyebrow">User management</div><h2>Users & roles</h2><p>Manage accounts, roles and access across the platform.</p></div>
-      <button class="btn" onclick="showToast('Invite sent.', 'success')">+ Invite user</button>
+      <button class="btn" onclick="openModalAddResearcher()">+ Invite user</button>
     </div>
     <div class="clay card table-wrap">
       <table>
@@ -2459,13 +3516,97 @@ function renderUsers(){
               <td class="mono">${u.email}</td>
               <td><span class="tag">${u.role}</span></td>
               <td><span class="badge ${u.status==='Active'?'badge-published':'badge-archived'}">${u.status}</span></td>
-              <td><button class="btn-icon" style="width:32px;height:32px;" onclick="showToast('Editing ${u.name.replace(/'/g,"")}…')">✎</button></td>
+              <td>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn-icon" style="width:32px;height:32px;" onclick="openModalEditUser('${u.id}')" title="Edit role / status">✎</button>
+                  <button class="btn-icon" style="width:32px;height:32px;" onclick="toggleBlockUser('${u.id}')" title="${u.isActive ? 'Block this account' : 'Unblock this account'}">${u.isActive ? '🚫' : '✓'}</button>
+                  <button class="btn-icon" style="width:32px;height:32px; color:var(--red);" onclick="deleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')" title="Delete account permanently">🗑</button>
+                </div>
+              </td>
             </tr>
           `).join('')}
         </tbody>
       </table>
     </div>
+    ${renderTableBrowserSection()}
   `;
+}
+
+function openModalEditUser(userId){
+  const u = DB.users.find(x => x.id === userId);
+  if(!u) return;
+  const roleOptions = ['researcher','institution_admin','reviewer','system_admin'];
+  openModal(`
+    <div class="modal-head"><h3>Edit user</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="row-sub">${u.name} · <span class="mono">${u.email}</span></div>
+      <div class="field"><label>Role</label>
+        <select id="edituser-role">${roleOptions.map(r=>`<option value="${r}" ${r===u.rawRole?'selected':''}>${ROLE_LABELS[r]||r}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>Account status</label>
+        <select id="edituser-active"><option value="true" ${u.isActive?'selected':''}>Active</option><option value="false" ${!u.isActive?'selected':''}>Suspended (blocked from logging in)</option></select>
+      </div>
+      <div id="edituser-error" style="color:var(--red); font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" onclick="submitEditUser('${u.id}')">Save changes</button>
+      </div>
+      <hr style="border:none; border-top:1px solid var(--clay-lo); margin:10px 0;">
+      <div class="row-sub">Deleting is permanent — it removes their login and researcher profile. Any publications/projects they authored stay in the system as historical records.</div>
+      <button class="btn btn-ghost btn-block" style="color:var(--red);" onclick="deleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')">Delete account permanently</button>
+    </div>
+  `);
+}
+
+async function submitEditUser(userId){
+  const errEl = document.getElementById('edituser-error');
+  errEl.textContent = '';
+  try{
+    await apiFetch(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        role: document.getElementById('edituser-role').value,
+        is_active: document.getElementById('edituser-active').value === 'true',
+      }),
+    });
+    closeModal();
+    showToast('User updated.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
+}
+
+async function toggleBlockUser(userId){
+  const u = DB.users.find(x => x.id === userId);
+  if(!u) return;
+  const nextActive = !u.isActive;
+  if(!nextActive && !confirm(`Block ${u.name}? They won't be able to log in until unblocked.`)) return;
+  try{
+    await apiFetch(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active: nextActive }),
+    });
+    showToast(nextActive ? `${u.name} unblocked.` : `${u.name} blocked.`, 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    showToast('Could not update: ' + err.message, 'error');
+  }
+}
+
+async function deleteUser(userId, name){
+  if(!confirm(`Permanently delete ${name}'s account? This can't be undone. Their publications/projects stay on record, but their login and researcher profile are removed for good.`)) return;
+  try{
+    await apiFetch(`/admin/users/${userId}`, { method: 'DELETE' });
+    closeModal(); // harmless no-op if called from the bare row icon with no modal open
+    showToast(`${name}'s account was deleted.`, 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    showToast('Could not delete: ' + err.message, 'error');
+  }
 }
 
 /* ============================================================
@@ -2475,12 +3616,13 @@ function renderAudit(){
   return `
     <div class="page-head">
       <div><div class="page-eyebrow">Audit module</div><h2>Audit & compliance</h2><p>User activity, security logs and compliance reports.</p></div>
-      <button class="btn btn-ghost" onclick="showToast('Compliance report exported.', 'success')">⇩ Export compliance report</button>
+      <button class="btn btn-ghost" onclick="exportAuditLog()">⇩ Export audit log</button>
     </div>
     <div class="clay card table-wrap">
       <table>
         <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Level</th></tr></thead>
         <tbody>
+          ${DB.auditLogs.length===0 ? `<tr><td colspan="4"><div class="empty-state"><div class="ic">⚉</div>No audit log entries yet.</div></td></tr>` : ''}
           ${DB.auditLogs.map(l => `
             <tr>
               <td class="mono">${l.time}</td>
@@ -2492,7 +3634,86 @@ function renderAudit(){
         </tbody>
       </table>
     </div>
+    ${renderTableBrowserSection()}
   `;
+}
+
+function exportAuditLog(){
+  try{
+    const rows = DB.auditLogs.map(l => [l.time, l.user, l.action, l.level]);
+    const csv = [['Time','User','Action','Level'], ...rows]
+      .map(r => r.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `ResearchSphere_Audit_Log_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    showToast('Audit log exported.', 'success');
+  }catch(err){
+    showToast('Export failed: ' + err.message, 'error');
+  }
+}
+
+/* ============================================================
+   Read-only raw database table browser — real, backed by
+   GET /admin/tables and GET /admin/tables/{name} (system_admin only).
+   Shown at the bottom of both Users and Audit pages.
+   ============================================================ */
+let tableBrowserCurrent = null;
+let tableBrowserRows = [];
+let tableBrowserColumns = [];
+
+function renderTableBrowserSection(){
+  return `
+    <div class="clay card" style="margin-top:20px;">
+      <div class="card-head">
+        <div><h3 style="font-size:14px;">Database table browser</h3><div class="card-sub">Read-only, live from PostgreSQL</div></div>
+        <select id="table-browser-select" onchange="loadTableBrowser(this.value)" style="max-width:220px;">
+          <option value="">Choose a table…</option>
+        </select>
+      </div>
+      <div id="table-browser-body" style="overflow-x:auto; margin-top:10px;"></div>
+    </div>
+  `;
+}
+
+async function initTableBrowserOptions(){
+  const select = document.getElementById('table-browser-select');
+  if(!select) return;
+  try{
+    const resp = await apiFetch('/admin/tables');
+    const options = Object.entries(resp.tables).map(([name, count]) =>
+      `<option value="${name}">${name} (${count})</option>`
+    ).join('');
+    select.innerHTML = `<option value="">Choose a table…</option>` + options;
+    if(tableBrowserCurrent) select.value = tableBrowserCurrent;
+  }catch(err){
+    select.innerHTML = `<option value="">Could not load table list</option>`;
+  }
+}
+
+async function loadTableBrowser(tableName){
+  tableBrowserCurrent = tableName;
+  const body = document.getElementById('table-browser-body');
+  if(!tableName){ body.innerHTML = ''; return; }
+  body.innerHTML = `<div class="row-sub">Loading ${tableName}…</div>`;
+  try{
+    const resp = await apiFetch(`/admin/tables/${tableName}?limit=50`);
+    tableBrowserColumns = resp.columns;
+    tableBrowserRows = resp.rows;
+    body.innerHTML = `
+      <div class="row-sub" style="margin-bottom:8px;">${resp.total} row(s) total — showing first ${resp.rows.length}</div>
+      <table>
+        <thead><tr>${resp.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${resp.rows.map(row => `<tr>${resp.columns.map(c => `<td class="mono" style="font-size:11.5px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${row[c] === null ? '<span class="row-sub">null</span>' : String(row[c])}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+  }catch(err){
+    body.innerHTML = `<div class="empty-state"><div class="ic">⚠</div>Could not load table: ${err.message}</div>`;
+  }
 }
 
 /* ============================================================
@@ -2596,7 +3817,10 @@ function groupCount(arr, keyFn){
 function filterOptions(){
   const scope = roleScope();
   return {
-    years: [...new Set([...DB.publications.map(p=>p.date.slice(0,4)), ...DB.citations.map(c=>String(c.year))])].sort().reverse(),
+    years: [...new Set([
+      ...DB.publications.map(p=>p.date.slice(0,4)),
+      ...DB.citations.map(c=>c.year != null ? String(c.year) : null),
+    ].filter(y => y))].sort().reverse(),
     insts: [...new Set(DB.publications.map(p=>p.inst))],
     depts: [...new Set((scope.type==='institution' ? DB.publications.filter(p=>p.inst===scope.inst) : scope.type==='researcher' ? scopedPublications() : DB.publications).map(p=>p.dept))],
     researchers: scope.type==='institution' ? DB.researchers.filter(r=>r.inst===scope.inst).map(r=>r.name.split(' ').pop()) : DB.researchers.map(r=>r.name.split(' ').pop()),
@@ -2636,7 +3860,131 @@ function resetAnalysisFilters(){
   if(wrap) wrap.innerHTML = renderFilterBar();
   renderAnalysisBody();
 }
-function exportAnalysis(fmt){ showToast(`${fmt==='pdf'?'PDF':'Excel'} export generated for the current filtered view.`, 'success'); }
+function exportExcel(){
+  try{
+    const wb = XLSX.utils.book_new();
+    const pubs = getPublications(), researchers = getResearchers(), projects = getProjects(), cits = getCitations(), confs = getConferences();
+    const summary = [
+      ['ResearchSphere — Analysis Export'],
+      ['Scope', ROLE_LABELS[session.role] || session.role],
+      ['Generated', new Date().toLocaleString()],
+      [],
+      ['Metric', 'Value'],
+      ['Publications', pubs.length],
+      ['Researchers', researchers.length],
+      ['Active projects', projects.filter(p=>p.status==='active').length],
+      ['Conferences', confs.length],
+      ['Total citations', cits.reduce((s,c)=>s+c.citedBy,0)],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'Summary');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pubs.map(p=>({
+      Title:p.title, Type:p.type, Status:STATUS_LABEL[p.status]||p.status,
+      Authors:(p.authorFullNames||p.authors).join('; '), Venue:p.venue, DOI:p.doi||'',
+      Date:p.date, Institution:p.inst, Department:p.dept,
+    }))), 'Publications');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(researchers.map(r=>({
+      Name:r.name, Department:r.dept, Institution:r.inst, Publications:r.pubs, Collaborators:r.collabs,
+    }))), 'Researchers');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(projects.map(p=>({
+      Name:p.name, Status:p.rawStatus||p.status, Members:(p.members||[]).join(', '), Institution:p.inst,
+    }))), 'Projects');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cits.map(c=>({
+      Title:c.title, DOI:c.doi||'', 'Cited By':c.citedBy, Year:c.year||'',
+    }))), 'Citations');
+    XLSX.writeFile(wb, `ResearchSphere_Analysis_${new Date().toISOString().slice(0,10)}.xlsx`);
+    showToast('Excel workbook downloaded.', 'success');
+  }catch(err){
+    console.error(err);
+    showToast('Excel export failed: ' + err.message, 'error');
+  }
+}
+
+function exportPdf(){
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const pubs = getPublications(), researchers = getResearchers(), projects = getProjects(), cits = getCitations(), confs = getConferences();
+    let y = 18;
+    doc.setFontSize(16); doc.setTextColor(20,20,40);
+    doc.text('ResearchSphere — Analysis Report', 14, y); y += 8;
+    doc.setFontSize(10); doc.setTextColor(110);
+    doc.text(`Scope: ${ROLE_LABELS[session.role] || session.role}   ·   Generated: ${new Date().toLocaleString()}`, 14, y); y += 10;
+    doc.setTextColor(0); doc.setFontSize(12);
+    doc.text('Summary', 14, y); y += 6;
+    doc.setFontSize(10);
+    [
+      `Publications: ${pubs.length}`,
+      `Researchers: ${researchers.length}`,
+      `Active projects: ${projects.filter(p=>p.status==='active').length}`,
+      `Conferences: ${confs.length}`,
+      `Total citations: ${cits.reduce((s,c)=>s+c.citedBy,0)}`,
+    ].forEach(l => { doc.text(l, 14, y); y += 6; });
+    y += 4;
+    doc.setFontSize(12); doc.text('Publications', 14, y); y += 6;
+    doc.setFontSize(9);
+    pubs.slice(0, 30).forEach(p => {
+      if(y > 280){ doc.addPage(); y = 18; }
+      doc.text(`• ${(p.title||'').slice(0,85)} — ${STATUS_LABEL[p.status]||p.status} (${p.date||'n/d'})`, 14, y);
+      y += 5.5;
+    });
+    if(pubs.length > 30){ doc.text(`…and ${pubs.length - 30} more (see the Excel export for the full list).`, 14, y); y += 6; }
+    doc.save(`ResearchSphere_Analysis_${new Date().toISOString().slice(0,10)}.pdf`);
+    showToast('PDF report downloaded.', 'success');
+  }catch(err){
+    console.error(err);
+    showToast('PDF export failed: ' + err.message, 'error');
+  }
+}
+
+async function exportImage(){
+  try{
+    showToast('Generating dashboard image…');
+    const el = document.getElementById('analysis-body');
+    const canvas = await html2canvas(el, { backgroundColor: themeDark ? '#14141f' : '#ffffff', scale: 2 });
+    const link = document.createElement('a');
+    link.download = `ResearchSphere_Dashboard_${new Date().toISOString().slice(0,10)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('Dashboard image downloaded.', 'success');
+  }catch(err){
+    console.error(err);
+    showToast('Image export failed: ' + err.message, 'error');
+  }
+}
+
+function exportPowerBI(){
+  try{
+    const pubs = getPublications();
+    const headers = ['Title','Type','Status','Authors','Venue','DOI','Date','Institution','Department'];
+    const rows = pubs.map(p => [
+      p.title, p.type, STATUS_LABEL[p.status]||p.status, (p.authorFullNames||p.authors).join('; '),
+      p.venue, p.doi||'', p.date, p.inst, p.dept,
+    ]);
+    const csv = [headers, ...rows]
+      .map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `ResearchSphere_PowerBI_Import_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    showToast('CSV downloaded — in Power BI Desktop, use Get Data → Text/CSV to import it.', 'success');
+  }catch(err){
+    console.error(err);
+    showToast('Export failed: ' + err.message, 'error');
+  }
+}
+
+function toggleExportMenu(e){
+  e.stopPropagation();
+  const menu = document.getElementById('export-menu');
+  const isOpen = menu.style.display === 'block';
+  menu.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen){
+    const closeOnClickAway = () => { menu.style.display = 'none'; document.removeEventListener('click', closeOnClickAway); };
+    setTimeout(() => document.addEventListener('click', closeOnClickAway), 0);
+  }
+}
 
 /* ---------- page shell ---------- */
 function renderAnalysis(){
@@ -2650,9 +3998,14 @@ function renderAnalysis(){
   return `
     <div class="page-head">
       <div><div class="page-eyebrow">Descriptive analytics · no AI/ML predictions</div><h2>Analysis Dashboard</h2><p>Statistical overview of publications, researchers, collaborations, projects, conferences and citations.</p></div>
-      <div style="display:flex; gap:10px;">
-        <button class="btn btn-ghost" onclick="exportAnalysis('excel')">⇩ Export Excel</button>
-        <button class="btn" onclick="exportAnalysis('pdf')">⇩ Export PDF</button>
+      <div style="position:relative;">
+        <button class="btn-icon clay" style="width:40px; height:40px; font-size:18px;" onclick="toggleExportMenu(event)" title="Download options">⋮</button>
+        <div id="export-menu" class="clay" style="display:none; position:absolute; right:0; top:48px; width:260px; padding:8px; z-index:40; border-radius:14px;">
+          <button class="btn-menu-item" onclick="exportExcel()">📊&nbsp; Download Excel (.xlsx)</button>
+          <button class="btn-menu-item" onclick="exportPdf()">📄&nbsp; Download PDF report</button>
+          <button class="btn-menu-item" onclick="exportImage()">🖼️&nbsp; Download dashboard image (.png)</button>
+          <button class="btn-menu-item" onclick="exportPowerBI()">📈&nbsp; Export for Power BI (.csv)</button>
+        </div>
       </div>
     </div>
     <div class="scope-banner">🔒 ${scopeText}</div>
@@ -2689,6 +4042,7 @@ function renderAnalysisBody(){
     const researchers = getResearchers();
 
     let html = summaryCardsHtml(role, pubs, cits, projects, confs, researchers);
+    html += platformOverviewHtml(role);
     html += publicationAnalysisHtml(pubs);
     if(role==='institution_admin' || role==='system_admin') html += researcherAnalysisHtml(researchers);
     if(role!=='reviewer'){
@@ -2717,6 +4071,39 @@ function renderAnalysisBody(){
 function statCardHtml(ic,color,val,label){
   return `<div class="clay stat-card"><div class="stat-top"><div class="stat-ic" style="background:${color}22;color:${color};">${ic}</div></div><div class="stat-val">${val}</div><div class="stat-label">${label}</div></div>`;
 }
+
+/* A second, un-filtered comparison section shown below "your" scoped view for
+   every role except System Admin (who already sees the whole platform as
+   their main view). Uses the raw DB.* arrays directly — not the role-scoped
+   getPublications()/getResearchers()/etc — so it always reflects everyone,
+   not just what the current filters or role would normally allow through. */
+function platformOverviewHtml(role){
+  if(role === 'system_admin') return '';
+  const allPubs = DB.publications, allResearchers = DB.researchers, allProjects = DB.projects,
+        allConfs = DB.conferences, allCits = DB.citations;
+  const totalCitedBy = allCits.reduce((s,c)=>s+c.citedBy,0);
+  const label = role === 'researcher' ? 'compared with every researcher on the platform'
+    : role === 'institution_admin' ? 'compared with every institution on the platform'
+    : 'compared with the whole platform';
+  return `
+    <div class="clay card" style="margin-bottom:18px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">Platform-wide overview</h3>
+        <span class="badge badge-submitted">All institutions · aggregate only</span>
+      </div>
+      <p class="row-sub" style="margin-bottom:14px;">
+        Your view above is scoped to you — these totals are ${label}, shown for context. Only aggregate counts are exposed here, never other researchers' individual records.
+      </p>
+      <div class="grid grid-4">
+        ${statCardHtml('◎','var(--indigo)', allResearchers.length, 'Researchers Platform-wide')}
+        ${statCardHtml('▤','var(--teal)', allPubs.length, 'Publications Platform-wide')}
+        ${statCardHtml('⌘','var(--coral)', allProjects.filter(p=>p.status==='active').length, 'Active Projects Platform-wide')}
+        ${statCardHtml('❝','var(--red)', totalCitedBy, 'Citations Platform-wide')}
+      </div>
+    </div>
+  `;
+}
+
 function summaryCardsHtml(role,pubs,cits,projects,confs,researchers){
   let cards;
   if(role==='researcher'){
@@ -2747,6 +4134,22 @@ function summaryCardsHtml(role,pubs,cits,projects,confs,researchers){
 }
 
 /* ---------- chart helpers (Chart.js) ---------- */
+function themeColor(varName){
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+function chartPalette(){
+  // Pulled live from the app's own CSS custom properties, so charts always
+  // exactly match the current theme (and instantly follow dark/light toggle)
+  // instead of duplicating hardcoded hex values that could drift out of sync.
+  return [
+    themeColor('--indigo') || '#6C63FF',
+    themeColor('--teal') || '#33B7A9',
+    themeColor('--coral') || '#FF8A65',
+    themeColor('--amber') || '#F5B14C',
+    themeColor('--green') || '#5FBE79',
+    themeColor('--red') || '#EF6868',
+  ];
+}
 function chartBaseOptions(){
   const tick = themeDark ? '#B3B3CC' : '#6E6E8C';
   const grid = themeDark ? '#2E3042' : '#E5E6F2';
@@ -2758,17 +4161,19 @@ function chartBaseOptions(){
 }
 function makeLineChart(id, labels, data, label){
   const el = document.getElementById(id); if(!el || typeof Chart==='undefined') return;
-  analysisCharts[id] = new Chart(el, { type:'line', data:{ labels, datasets:[{ label, data, borderColor:'#6C63FF', backgroundColor:'rgba(108,99,255,0.15)', tension:.35, fill:true, pointRadius:3 }] }, options: chartBaseOptions() });
+  const c = chartPalette()[0];
+  analysisCharts[id] = new Chart(el, { type:'line', data:{ labels, datasets:[{ label, data, borderColor:c, backgroundColor:c+'26', tension:.35, fill:true, pointRadius:3 }] }, options: chartBaseOptions() });
 }
-function makeBarChart(id, labels, data, label){
+function makeBarChart(id, labels, data, label, colorIndex){
   const el = document.getElementById(id); if(!el || typeof Chart==='undefined') return;
-  analysisCharts[id] = new Chart(el, { type:'bar', data:{ labels, datasets:[{ label, data, backgroundColor:'#33B7A9', borderRadius:6, maxBarThickness:42 }] }, options: chartBaseOptions() });
+  const c = chartPalette()[colorIndex ?? 1];
+  analysisCharts[id] = new Chart(el, { type:'bar', data:{ labels, datasets:[{ label, data, backgroundColor:c, borderRadius:6, maxBarThickness:42 }] }, options: chartBaseOptions() });
 }
 function makeDoughnutChart(id, labels, data){
   const el = document.getElementById(id); if(!el || typeof Chart==='undefined') return;
   const opts = chartBaseOptions();
   delete opts.scales;
-  analysisCharts[id] = new Chart(el, { type:'doughnut', data:{ labels, datasets:[{ data, backgroundColor:['#6C63FF','#33B7A9','#FF8A65','#F5B14C','#5FBE79','#EF6868'] }] }, options:{ ...opts, cutout:'62%' } });
+  analysisCharts[id] = new Chart(el, { type:'doughnut', data:{ labels, datasets:[{ data, backgroundColor:chartPalette() }] }, options:{ ...opts, cutout:'62%' } });
 }
 
 /* ---------- Publication Analysis ---------- */
@@ -2787,6 +4192,7 @@ function publicationAnalysisHtml(pubs){
         <div class="card-head"><h3 style="font-size:14px;">Publication records</h3></div>
         <div id="pub-table-wrap"></div>
       </div>
+      ${insightsCard(publicationInsights(pubs))}
     </div>
   `;
 }
@@ -2795,6 +4201,92 @@ function chartCard(title, canvasId, tall){
 }
 function sectionEmpty(title, ic, msg){
   return `<div class="analysis-section"><div class="analysis-section-head"><h3>${title}</h3></div><div class="clay empty-state"><div class="ic">${ic}</div>${msg}</div></div>`;
+}
+/* Short, auto-generated, data-driven takeaways — every number here comes
+   straight from the same scoped arrays the charts above are drawn from,
+   not a canned/static blurb. */
+function insightsCard(items){
+  if(!items || items.length === 0) return '';
+  return `<div class="clay card" style="margin-top:14px; border-left:3px solid var(--indigo);">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;"><span style="font-size:15px;">💡</span><h4 style="font-size:12px; margin:0; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em;">Key insights</h4></div>
+    <ul style="margin:0; padding-left:18px; font-size:13.5px; line-height:1.75;">${items.map(i=>`<li>${i}</li>`).join('')}</ul>
+  </div>`;
+}
+function publicationInsights(pubs){
+  if(pubs.length === 0) return [];
+  const byYear = groupCount(pubs, p=>p.date.slice(0,4)||'Unknown');
+  const topYear = Object.entries(byYear).sort((a,b)=>b[1]-a[1])[0];
+  const byType = groupCount(pubs, p=>p.type);
+  const topType = Object.entries(byType).sort((a,b)=>b[1]-a[1])[0];
+  const published = pubs.filter(p=>p.status==='published').length;
+  const withDoi = pubs.filter(p=>p.doi).length;
+  const out = [
+    `<b>${topYear[0]}</b> was the busiest year, with <b>${topYear[1]}</b> of ${pubs.length} publication(s).`,
+    `<b>${topType[0]}</b> is the most common type (${topType[1]} of ${pubs.length}).`,
+    `<b>${Math.round((published/pubs.length)*100)}%</b> of this view is published (${published} of ${pubs.length}).`,
+  ];
+  if(withDoi < pubs.length) out.push(`<b>${pubs.length-withDoi}</b> publication(s) don't have a DOI on record yet.`);
+  return out;
+}
+function researcherInsights(researchers){
+  if(researchers.length === 0) return [];
+  const byDept = groupCount(researchers, r=>r.dept||'Unspecified');
+  const topDept = Object.entries(byDept).sort((a,b)=>b[1]-a[1])[0];
+  const byInst = groupCount(researchers, r=>r.inst||'Unspecified');
+  const mostPubs = researchers.slice().sort((a,b)=>(b.pubs||0)-(a.pubs||0))[0];
+  const avgPubs = (researchers.reduce((s,r)=>s+(r.pubs||0),0) / researchers.length).toFixed(1);
+  return [
+    `<b>${topDept[0]}</b> is the largest department in this view (${topDept[1]} researcher(s)).`,
+    `Researchers span <b>${Object.keys(byInst).length}</b> institution(s) in this view.`,
+    `<b>${mostPubs.name}</b> has the most publications here (${mostPubs.pubs||0}).`,
+    `Average publications per researcher: <b>${avgPubs}</b>.`,
+  ];
+}
+function collaborationInsights(pubs){
+  const { nodeCounts, edgeCounts } = computeCoauthorGraph(pubs);
+  if(nodeCounts.size === 0) return [];
+  const soloCount = pubs.filter(p => (p.authors||[]).length <= 1).length;
+  const multiCount = pubs.length - soloCount;
+  const topPair = Array.from(edgeCounts.entries()).sort((a,b)=>b[1]-a[1])[0];
+  const out = [
+    `<b>${countCollaborations(pubs)}</b> distinct co-authorship pair(s) across ${pubs.length} publication(s).`,
+    `<b>${multiCount}</b> of ${pubs.length} publications have more than one author.`,
+  ];
+  if(topPair) out.push(`Most frequent pair: <b>${topPair[0].replace('__',' & ')}</b> (${topPair[1]} joint publication(s)).`);
+  return out;
+}
+function projectInsights(projects){
+  if(projects.length === 0) return [];
+  const active = projects.filter(p=>p.status==='active').length;
+  const completed = projects.filter(p=>p.status==='completed').length;
+  const byInst = groupCount(projects, p=>p.inst||'Unspecified');
+  const topInst = Object.entries(byInst).sort((a,b)=>b[1]-a[1])[0];
+  return [
+    `<b>${active}</b> of ${projects.length} project(s) are currently active.`,
+    `<b>${completed}</b> project(s) have been completed.`,
+    `<b>${topInst[0]}</b> leads the most projects in this view (${topInst[1]}).`,
+  ];
+}
+function conferenceInsights(confs){
+  if(confs.length === 0) return [];
+  const upcoming = confs.filter(c=>c.status==='Upcoming').length;
+  const byYear = groupCount(confs, c=>(c.date||'').slice(0,4)||'Unknown');
+  const topYear = Object.entries(byYear).sort((a,b)=>b[1]-a[1])[0];
+  return [
+    `<b>${upcoming}</b> of ${confs.length} conference(s) in this view are upcoming.`,
+    `<b>${topYear[0]}</b> has the most conference activity (${topYear[1]}).`,
+  ];
+}
+function citationInsights(cits){
+  if(cits.length === 0) return [];
+  const total = cits.reduce((s,c)=>s+c.citedBy,0);
+  const top = cits.slice().sort((a,b)=>b.citedBy-a.citedBy)[0];
+  const avg = (total/cits.length).toFixed(1);
+  return [
+    `<b>${total}</b> total citation(s) across ${cits.length} publication(s) with a DOI.`,
+    `Average <b>${avg}</b> citation(s) per cited publication.`,
+    `Most-cited: <b>${top.title.length>50?top.title.slice(0,50)+'…':top.title}</b> (${top.citedBy} citation(s)).`,
+  ];
 }
 function drawPublicationCharts(pubs){
   if(pubs.length===0) return;
@@ -2858,6 +4350,7 @@ function researcherAnalysisHtml(researchers){
         <div class="card-head"><h3 style="font-size:14px;">Research interests distribution</h3></div>
         <div class="tag-row">${interestTagsHtml(researchers)}</div>
       </div>
+      ${insightsCard(researcherInsights(researchers))}
     </div>
   `;
 }
@@ -2886,11 +4379,12 @@ function collaborationAnalysisHtml(pubs){
         <div class="clay chart-card"><h4 style="font-size:13px;margin-bottom:10px;color:var(--ink-soft);">Collaboration network</h4><svg id="analysis-network" viewBox="0 0 500 220" style="width:100%; height:220px;"></svg></div>
         <div class="clay card"><h4 style="font-size:13px;margin-bottom:10px;color:var(--ink-soft);">Most active collaborators</h4><div id="top-collab-list"></div></div>
       </div>
+      ${insightsCard(collaborationInsights(pubs))}
     </div>
   `;
 }
 function drawCollaborationNetwork(pubs){
-  drawNetwork('analysis-network', 500, 220, Math.min(24, 8 + pubs.length*2));
+  drawRealCollaborationNetwork('analysis-network', pubs);
   const counts = {};
   pubs.forEach(p=>{ if(p.authors.length>1) p.authors.forEach(a=>counts[a]=(counts[a]||0)+1); });
   const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -2907,8 +4401,9 @@ function projectAnalysisHtml(projects){
       <div class="analysis-section-head"><h3>Project Analysis</h3><span class="card-sub">${projects.length} project(s)</span></div>
       <div class="grid grid-2">
         ${chartCard('Projects by status','chart-proj-status')}
-        ${chartCard('Projects by department','chart-proj-dept')}
+        ${chartCard('Projects by lead institution','chart-proj-inst')}
       </div>
+      ${insightsCard(projectInsights(projects))}
     </div>
   `;
 }
@@ -2916,8 +4411,11 @@ function drawProjectChart(projects){
   if(projects.length===0) return;
   const byStatus = groupCount(projects, p=>p.status.charAt(0).toUpperCase()+p.status.slice(1));
   makeDoughnutChart('chart-proj-status', Object.keys(byStatus), Object.values(byStatus));
-  const byDept = groupCount(projects, p=>p.dept);
-  makeBarChart('chart-proj-dept', Object.keys(byDept), Object.values(byDept), 'Projects');
+  // Lead institution is real, backend-tracked data (unlike a project
+  // "department", which this schema doesn't record) — a genuinely useful
+  // breakdown instead of a chart with a single "—" bar.
+  const byInst = groupCount(projects, p=>p.inst || 'Unspecified');
+  makeBarChart('chart-proj-inst', Object.keys(byInst), Object.values(byInst), 'Projects', 2);
 }
 
 /* ---------- Conference Analysis ---------- */
@@ -2935,6 +4433,7 @@ function conferenceAnalysisHtml(confs){
           ${upcoming.length ? upcoming.map(c=>`<div class="list-row"><div class="row-ic" style="background:var(--teal)">${c.name[0]}</div><div><div class="row-title">${c.name}</div><div class="row-sub">${c.location} · ${c.date}</div></div></div>`).join('') : `<div class="empty-state" style="padding:20px 0;"><div class="ic">▥</div>No upcoming conferences in this view.</div>`}
         </div>
       </div>
+      ${insightsCard(conferenceInsights(confs))}
     </div>
   `;
 }
@@ -2959,6 +4458,7 @@ function citationAnalysisHtml(cits){
         <div class="card-head"><h3 style="font-size:14px;">Citation records</h3></div>
         <div id="cit-table-wrap"></div>
       </div>
+      ${insightsCard(citationInsights(cits))}
     </div>
   `;
 }
@@ -3001,6 +4501,110 @@ function openModal(html){
 function closeModal(){ document.getElementById('modal-overlay').classList.remove('show'); }
 document.getElementById('modal-overlay').addEventListener('click', (e)=>{ if(e.target.id==='modal-overlay') closeModal(); });
 
+/* ============================================================
+   GLOBAL SEARCH — real, searches whatever's actually loaded in DB
+   ============================================================ */
+let globalSearchTimer = null;
+function handleGlobalSearchInput(forceOpen){
+  clearTimeout(globalSearchTimer);
+  globalSearchTimer = setTimeout(() => runGlobalSearch(forceOpen), forceOpen ? 0 : 180);
+}
+function runGlobalSearch(forceOpen){
+  const q = document.getElementById('global-search').value.trim().toLowerCase();
+  const resultsEl = document.getElementById('global-search-results');
+  if(!q){ resultsEl.style.display = 'none'; return; }
+
+  const pubMatches = DB.publications.filter(p =>
+    p.title.toLowerCase().includes(q) || (p.doi && p.doi.toLowerCase().includes(q))
+  ).slice(0, 5);
+  const researcherMatches = DB.researchers.filter(r => r.name.toLowerCase().includes(q)).slice(0, 5);
+  const confMatches = DB.conferences.filter(c => c.name.toLowerCase().includes(q)).slice(0, 4);
+
+  const total = pubMatches.length + researcherMatches.length + confMatches.length;
+  if(total === 0){
+    resultsEl.innerHTML = `<div style="padding:14px; font-size:13px; color:var(--ink-soft);">No matches for "${q}".</div>`;
+    resultsEl.style.display = 'block';
+    return;
+  }
+
+  let html = '';
+  if(researcherMatches.length){
+    html += `<div style="font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; padding:6px 10px;">Researchers</div>`;
+    html += researcherMatches.map(r => `<div class="btn-menu-item" onclick="jumpToSearchResult('researchers')"><b>${r.name}</b> — ${r.dept}</div>`).join('');
+  }
+  if(pubMatches.length){
+    html += `<div style="font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; padding:6px 10px;">Publications</div>`;
+    html += pubMatches.map(p => `<div class="btn-menu-item" onclick="jumpToSearchResult('publications')">${p.title}${p.doi ? ` <span class="mono" style="color:var(--ink-faint);">· ${p.doi}</span>` : ''}</div>`).join('');
+  }
+  if(confMatches.length){
+    html += `<div style="font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; padding:6px 10px;">Conferences</div>`;
+    html += confMatches.map(c => `<div class="btn-menu-item" onclick="jumpToSearchResult('conferences')">${c.name}</div>`).join('');
+  }
+  resultsEl.innerHTML = html;
+  resultsEl.style.display = 'block';
+}
+function jumpToSearchResult(page){
+  document.getElementById('global-search-results').style.display = 'none';
+  goPage(page);
+}
+document.addEventListener('click', (e) => {
+  const box = document.querySelector('.search-box');
+  if(box && !box.contains(e.target)){
+    const r = document.getElementById('global-search-results');
+    if(r) r.style.display = 'none';
+  }
+});
+
+/* ============================================================
+   NOTIFICATIONS — real, computed from currently-loaded data
+   ============================================================ */
+function buildNotifications(){
+  const notifs = [];
+  const role = session.role;
+  const today = new Date().toISOString().slice(0,10);
+  const in14days = new Date(Date.now() + 14*24*60*60*1000).toISOString().slice(0,10);
+
+  if(role === 'researcher'){
+    const myPubs = scopedPublications();
+    const drafts = myPubs.filter(p => p.status === 'draft');
+    if(drafts.length) notifs.push({ic:'⛊', text:`You have ${drafts.length} publication(s) still in draft.`});
+    const myCitedTotal = scopedCitations().reduce((s,c)=>s+c.citedBy,0);
+    if(myCitedTotal > 0) notifs.push({ic:'❝', text:`Your publications have been cited ${myCitedTotal} time(s) in total.`});
+    const soonConfs = DB.conferences.filter(c => c.date && c.date >= today && c.date <= in14days);
+    if(soonConfs.length) notifs.push({ic:'▥', text:`${soonConfs.length} conference(s) coming up in the next 14 days.`});
+  } else if(role === 'reviewer'){
+    if(DB.pendingReviews.length) notifs.push({ic:'✓', text:`${DB.pendingReviews.length} publication(s) awaiting your review.`});
+  } else if(role === 'institution_admin'){
+    const myPubs = scopedPublications();
+    const recentPubs = myPubs.filter(p => p.date >= today.slice(0,7)); // same month, rough
+    notifs.push({ic:'▤', text:`${scopedResearchers().length} researcher(s) at your institution.`});
+    if(myPubs.length) notifs.push({ic:'▤', text:`${myPubs.length} publication(s) recorded at your institution.`});
+  } else if(role === 'system_admin'){
+    const unverified = DB.users.filter(u => u.status !== 'Active').length;
+    if(unverified) notifs.push({ic:'⚉', text:`${unverified} account(s) currently inactive.`});
+    notifs.push({ic:'▦', text:`${DB.users.length} total user(s) on the platform.`});
+  }
+  const soonAny = DB.conferences.filter(c => c.date && c.date >= today && c.date <= in14days).length;
+  if(role !== 'researcher' && soonAny) notifs.push({ic:'▥', text:`${soonAny} conference(s) system-wide in the next 14 days.`});
+
+  return notifs;
+}
+function toggleNotifications(e){
+  e.stopPropagation();
+  const menu = document.getElementById('notif-menu');
+  const isOpen = menu.style.display === 'block';
+  if(isOpen){ menu.style.display = 'none'; return; }
+
+  const notifs = buildNotifications();
+  menu.innerHTML = `<div style="font-size:12px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; padding:8px 10px;">Notifications</div>` +
+    (notifs.length
+      ? notifs.map(n => `<div style="display:flex; gap:10px; padding:9px 10px; align-items:flex-start;"><span>${n.ic}</span><span style="font-size:13px; line-height:1.4;">${n.text}</span></div>`).join('')
+      : `<div style="padding:14px 10px; font-size:13px; color:var(--ink-soft);">You're all caught up — nothing new right now.</div>`);
+  menu.style.display = 'block';
+  const closeOnClickAway = () => { menu.style.display = 'none'; document.removeEventListener('click', closeOnClickAway); };
+  setTimeout(() => document.addEventListener('click', closeOnClickAway), 0);
+}
+
 function showToast(msg, type=''){
   const wrap = document.getElementById('toast-wrap');
   const t = document.createElement('div');
@@ -3021,6 +4625,7 @@ function openQuickAction(){
 }
 
 function openSettingsQuick(){
+  const enabled = currentUser ? currentUser.email_notifications_enabled !== false : true;
   openModal(`
     <div class="modal-head"><h3>Settings</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
     <div class="field-grid">
@@ -3030,11 +4635,31 @@ function openSettingsQuick(){
       </div>
       <div style="display:flex; align-items:center; justify-content:space-between;">
         <div><div class="row-title">Email notifications</div><div class="row-sub">Publication & review updates</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="showToast('Preference saved.', 'success')">On</button>
+        <button class="btn btn-ghost btn-sm" id="email-notif-btn" onclick="toggleEmailNotifications()">${enabled ? 'On' : 'Off'}</button>
       </div>
       <div class="modal-actions"><button class="btn btn-block" onclick="closeModal()">Done</button></div>
     </div>
   `);
+}
+
+async function toggleEmailNotifications(){
+  const btn = document.getElementById('email-notif-btn');
+  const current = currentUser ? currentUser.email_notifications_enabled !== false : true;
+  const next = !current;
+  btn.disabled = true;
+  try{
+    const updated = await apiFetch('/auth/me/notification-preferences', {
+      method: 'PUT',
+      body: JSON.stringify({ email_notifications_enabled: next }),
+    });
+    currentUser.email_notifications_enabled = updated.email_notifications_enabled;
+    btn.textContent = updated.email_notifications_enabled ? 'On' : 'Off';
+    showToast(`Email notifications turned ${updated.email_notifications_enabled ? 'on' : 'off'}.`, 'success');
+  }catch(err){
+    showToast('Could not update preference: ' + err.message, 'error');
+  }finally{
+    btn.disabled = false;
+  }
 }
 
 function toggleTheme(){
@@ -3047,9 +4672,13 @@ function toggleTheme(){
 }
 function drawNetworkAll(){
   drawNetwork('network-hero', 360, 170, 20);
-  if(document.getElementById('dash-network')) drawNetwork('dash-network', 320, 150, 16);
+  // dash-network and analysis-network are intentionally NOT redrawn here —
+  // both are real co-authorship data (see drawRealCollaborationNetwork),
+  // owned exclusively by drawDashboardChart() / drawCollaborationNetwork()
+  // respectively, so neither gets overwritten with the decorative random
+  // graph used only on the pre-login landing page and Collaborations page.
+  if(document.getElementById('dash-network') && currentPage==='dashboard') drawDashboardChart();
   if(document.getElementById('collab-network')) drawNetwork('collab-network', 900, 160, 24);
-  if(document.getElementById('analysis-network')) drawNetwork('analysis-network', 500, 220, 20);
 }
 
 /* keyboard: escape closes modal */
@@ -3060,6 +4689,7 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); }
    ============================================================ */
 renderRoleGrid();
 drawNetwork('network-hero', 360, 170, 20);
+initGoogleSignIn();
 window.addEventListener('resize', ()=>{ if(document.getElementById('app-screen').style.display!=='none') drawNetworkAll(); });
 
 
@@ -3124,11 +4754,85 @@ logout = function(){
 // Entry routing: honor ?auth=login / ?auth=register / &next=... on load,
 // otherwise show the landing page first. If a saved API token is present
 // and still valid, skip straight past login into the app.
+/* ============================================================
+   PUBLIC SHAREABLE RESEARCHER PROFILE (no login required)
+   ============================================================ */
+async function showPublicResearcherProfile(researcherId){
+  document.getElementById('landing-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'none';
+  let root = document.getElementById('public-profile-root');
+  if(!root){
+    root = document.createElement('div');
+    root.id = 'public-profile-root';
+    document.body.appendChild(root);
+  }
+  root.style.display = 'block';
+  root.innerHTML = `<div style="max-width:640px; margin:60px auto; text-align:center; color:var(--ink-soft);">Loading profile…</div>`;
+
+  try{
+    const [r, pubs] = await Promise.all([
+      apiFetch(`/researchers/${researcherId}`),
+      apiFetch('/publications'),
+    ]);
+    const theirLastName = lastName(r.full_name);
+    const theirPubs = pubs.filter(p => (p.author_names||[]).map(lastName).includes(theirLastName));
+    root.innerHTML = `
+      <div style="max-width:640px; margin:50px auto; padding:0 20px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">
+          <div style="width:30px;height:30px;border-radius:9px;background:var(--indigo-tint);display:flex;align-items:center;justify-content:center;">🧬</div>
+          <b>Research<span style="color:var(--indigo);">Sphere</span></b> <span style="color:var(--ink-faint); font-size:12px;">· public profile</span>
+        </div>
+        <div class="clay card" style="padding:28px;">
+          <div style="display:flex; gap:16px; align-items:center;">
+            ${r.avatar_url
+              ? `<img src="${API_BASE_URL}${r.avatar_url}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">`
+              : `<div class="p-avatar" style="width:72px;height:72px;font-size:24px;">${initials(r.full_name)}</div>`}
+            <div>
+              <h2 style="margin:0;">${r.full_name}</h2>
+              <div class="row-sub">${r.academic_title ? r.academic_title + ' · ' : ''}${r.department || ''}${r.institution ? ' · ' + r.institution.name : ''}</div>
+              ${r.orcid_id ? `<a href="https://orcid.org/${r.orcid_id}" target="_blank" rel="noopener" style="font-size:12.5px; color:var(--indigo);">ORCID: ${r.orcid_id} ↗</a>` : ''}
+            </div>
+          </div>
+          ${r.bio ? `<p style="margin-top:16px; line-height:1.6; color:var(--ink-soft);">${r.bio}</p>` : ''}
+          <div class="tag-row" style="margin-top:14px;">${(r.tag_names||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+          <hr style="border:none; border-top:1px solid var(--clay-lo); margin:20px 0;">
+          <b style="font-size:12px; color:var(--ink-soft); text-transform:uppercase;">Publications (${theirPubs.length})</b>
+          ${theirPubs.length
+            ? theirPubs.map(p => `<div style="margin-top:8px; font-size:14px;">${p.title}${p.publication_date ? ` <span style="color:var(--ink-faint);">(${p.publication_date.slice(0,4)})</span>` : ''}</div>`).join('')
+            : `<div class="row-sub" style="margin-top:8px;">No publications on record yet.</div>`}
+        </div>
+        <div style="text-align:center; margin-top:20px;">
+          <a href="${window.location.pathname}" style="font-size:13px; color:var(--ink-soft);">← Back to ResearchSphere</a>
+        </div>
+      </div>
+    `;
+  }catch(err){
+    root.innerHTML = `<div style="max-width:480px; margin:80px auto; text-align:center;"><div class="empty-state"><div class="ic">⚠</div>Could not load this profile: ${err.message}</div><div style="text-align:center; margin-top:16px;"><a href="${window.location.pathname}" style="font-size:13px; color:var(--ink-soft);">← Back to ResearchSphere</a></div></div>`;
+  }
+}
+
+function copyPublicProfileLink(researcherId){
+  const url = `${window.location.origin}${window.location.pathname}?public_researcher=${researcherId}`;
+  navigator.clipboard.writeText(url).then(
+    () => showToast('Public profile link copied to clipboard.', 'success'),
+    () => showToast(url, '')
+  );
+}
+
 (async function initialRoute(){
   const params = new URLSearchParams(window.location.search);
   const authParam = params.get('auth');
   const nextParam = params.get('next');
+  const publicResearcherId = params.get('public_researcher');
   if(nextParam) pendingNextPage = nextParam;
+
+  // Public, shareable, no-login-required profile view — GET /researchers/{id}
+  // is a public endpoint, so this works from a plain shared link.
+  if(publicResearcherId){
+    await showPublicResearcherProfile(publicResearcherId);
+    return;
+  }
 
   let savedToken = null;
   try{ savedToken = localStorage.getItem('rs_auth_token'); }catch(e){}

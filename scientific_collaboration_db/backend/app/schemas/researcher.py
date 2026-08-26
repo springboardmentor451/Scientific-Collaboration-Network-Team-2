@@ -28,3 +28,9 @@ class ResearcherUpdate(BaseModel):
         if v is not None and not ORCID_PATTERN.match(v):
             raise ValueError("orcid_id must be in the format 0000-0000-0000-0000")
         return v
+
+
+class ResearcherTagsUpdate(BaseModel):
+    """Replaces the logged-in researcher's full skill/interest tag set."""
+    skills: list[str] = []
+    interests: list[str] = []

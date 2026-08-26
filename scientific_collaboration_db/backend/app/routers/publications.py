@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -9,6 +12,11 @@ from app.schemas.common import PublicationOut
 from app.schemas.publication import ALLOWED_STATUS_TRANSITIONS, PublicationCreate, PublicationUpdate
 
 router = APIRouter(prefix="/publications", tags=["publications-write"])
+
+UPLOAD_ROOT = Path(__file__).resolve().parent.parent.parent / "uploads" / "publications"
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx"}
+MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 
 def _get_researcher_or_403(db: Session, current_user: User) -> Researcher:
@@ -131,3 +139,64 @@ def update_publication(
 
     db.refresh(publication)
     return publication
+
+
+def _require_author_or_admin(db: Session, publication: Publication, current_user: User) -> None:
+    if current_user.role == UserRole.SYSTEM_ADMIN:
+        return
+    researcher = _get_researcher_or_403(db, current_user)
+    is_author = any(link.researcher_id == researcher.id for link in publication.authors)
+    if not is_author:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an author of this publication or a system admin can do this",
+        )
+
+
+@router.post("/{publication_id}/file", response_model=PublicationOut)
+def upload_publication_file(
+    publication_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Attaches the actual paper (PDF/DOC/DOCX, up to 20MB) to a publication.
+    Stored on local disk under backend/uploads/publications/ — swap for S3 in
+    production by changing UPLOAD_ROOT + how the path is stored, the API
+    shape here wouldn't need to change.
+    """
+    publication = db.get(Publication, publication_id)
+    if not publication:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Publication not found")
+    _require_author_or_admin(db, publication, current_user)
+
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"File type must be one of: {', '.join(sorted(ALLOWED_EXTENSIONS))}")
+
+    contents = file.file.read()
+    if len(contents) > MAX_FILE_BYTES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is larger than the 20MB limit")
+
+    dest_dir = UPLOAD_ROOT / str(publication.id)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = "".join(c for c in (file.filename or "upload" + ext) if c.isalnum() or c in "._- ")[:150] or ("upload" + ext)
+    dest_path = dest_dir / safe_name
+    dest_path.write_bytes(contents)
+
+    publication.file_path = str(dest_path.relative_to(UPLOAD_ROOT.parent.parent))
+    db.commit()
+    db.refresh(publication)
+    return publication
+
+
+@router.get("/{publication_id}/file")
+def download_publication_file(publication_id: str, db: Session = Depends(get_db)):
+    publication = db.get(Publication, publication_id)
+    if not publication or not publication.file_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No file attached to this publication")
+    full_path = UPLOAD_ROOT.parent.parent / publication.file_path
+    if not full_path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File is on record but missing on disk")
+    return FileResponse(full_path, filename=publication.file_name)

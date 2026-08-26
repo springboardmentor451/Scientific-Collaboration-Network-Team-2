@@ -12,13 +12,6 @@ settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-# def hash_password(plain_password: str) -> str:
-#     return pwd_context.hash(plain_password)
-
-
-# def verify_password(plain_password: str, hashed_password: str) -> bool:
-#     return pwd_context.verify(plain_password, hashed_password)
-
 def hash_password(plain_password: str) -> str:
     return pwd_context.hash(plain_password)
 
@@ -45,7 +38,6 @@ def hash_otp_code(code: str) -> str:
 
 def verify_otp_code(code: str, code_hash: str) -> bool:
     return pwd_context.verify(code, code_hash)
-# ----------
 
 
 def create_access_token(subject: str, extra_claims: dict | None = None) -> str:
@@ -63,6 +55,12 @@ def create_access_token(subject: str, extra_claims: dict | None = None) -> str:
 def create_email_verification_token(user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
     payload = {"sub": user_id, "exp": expire, "purpose": "email_verification"}
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_password_reset_token(user_id: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES)
+    payload = {"sub": user_id, "exp": expire, "purpose": "password_reset"}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 

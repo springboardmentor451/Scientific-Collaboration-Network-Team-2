@@ -76,6 +76,21 @@ class Publication(Base):
     def __repr__(self) -> str:
         return f"<Publication {self.title[:40]!r}>"
 
+    @property
+    def file_name(self) -> str | None:
+        if not self.file_path:
+            return None
+        return self.file_path.replace("\\", "/").rsplit("/", 1)[-1]
+
+    @property
+    def author_names(self) -> list[str]:
+        # Derived from the publication_authors association (already ordered
+        # by author_order via the `authors` relationship). This is what
+        # actually feeds PublicationOut.author_names — without it, that
+        # field silently falls back to its Pydantic default of [] for
+        # every publication, since "author_names" isn't a real column.
+        return [link.researcher.full_name for link in self.authors if link.researcher]
+
 
 class PublicationAuthor(Base):
     """

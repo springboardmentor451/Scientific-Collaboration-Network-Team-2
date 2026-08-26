@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.deps import get_current_user
+from app.core.email import send_email
 from app.database import get_db
 from app.models import Citation, Publication, Researcher, User, UserRole
 from app.schemas.citation import CitationCreate, CitationUpdate
@@ -87,6 +88,26 @@ def create_citation(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not create citation")
     db.refresh(citation)
     log_action(db, current_user.id, "CREATE", "Citation", citation.id, {"citing_publication_id": str(citing_pub.id)})
+
+    # Real notification: email every author of the cited publication (if
+    # they have email_notifications_enabled), gated by their actual saved
+    # preference — this is what that Settings toggle was built to control.
+    if payload.cited_publication_id:
+        cited_pub = db.get(Publication, payload.cited_publication_id)
+        if cited_pub:
+            for link in cited_pub.authors:
+                author_user = link.researcher.user if link.researcher else None
+                if author_user and author_user.email_notifications_enabled and author_user.id != current_user.id:
+                    send_email(
+                        author_user.email,
+                        "Your publication was cited — Scientific Collaboration Network Analyzer",
+                        (
+                            f"Hi,\n\nYour publication \"{cited_pub.title}\" was just cited by "
+                            f"\"{citing_pub.title}\".\n\n"
+                            f"You can turn these emails off anytime from Settings.\n"
+                        ),
+                    )
+
     return citation
 
 

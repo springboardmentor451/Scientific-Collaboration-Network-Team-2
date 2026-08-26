@@ -58,15 +58,6 @@ class UserRegister(BaseModel):
         return v
 
 
-# class UserLogin(BaseModel):
-#     email: EmailStr
-#     password: str
-
-
-# class Token(BaseModel):
-#     access_token: str
-#     token_type: str = "bearer"
-
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
@@ -108,8 +99,33 @@ class GoogleAuth(BaseModel):
     back to the frontend after the user picks a Google account."""
     id_token: str
 
-    # _________
-    
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def strong_enough(cls, v: str) -> str:
+        if len(v) < 8 or not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
+            raise ValueError("Password must be at least 8 characters and include a letter and a number")
+        return v
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def strong_enough(cls, v: str) -> str:
+        if len(v) < 8 or not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
+            raise ValueError("Password must be at least 8 characters and include a letter and a number")
+        return v
 
 
 class UserOut(BaseModel):
@@ -118,4 +134,9 @@ class UserOut(BaseModel):
     email: str
     role: str
     is_active: bool
+    email_notifications_enabled: bool = True
     researcher: ResearcherOut | None = None
+
+
+class NotificationPreferenceUpdate(BaseModel):
+    email_notifications_enabled: bool

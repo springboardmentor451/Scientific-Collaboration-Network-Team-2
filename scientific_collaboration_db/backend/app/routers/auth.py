@@ -1,32 +1,21 @@
 """
 Authentication endpoints: register, login, and "who am I".
 """
-# from fastapi import APIRouter, Depends, HTTPException, status
-# from fastapi.security import OAuth2PasswordRequestForm
-# from sqlalchemy.exc import IntegrityError
-# from sqlalchemy.orm import Session
-
-# from app.core.deps import get_current_user
-# from app.core.config import get_settings
-# from app.core.email import send_verification_email
-# from app.core.security import create_access_token, create_email_verification_token, decode_access_token, hash_password, verify_password
-# from app.database import get_db
-# from app.models import Researcher, User, UserRole
-# from app.schemas.auth import Token, UserLogin, UserOut, UserRegister
-
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.core.config import get_settings
-from app.core.email import send_otp_email, send_verification_email
+from app.core.email import send_otp_email, send_password_reset_email, send_verification_email
 from app.core.security import (
     create_access_token,
     create_email_verification_token,
+    create_password_reset_token,
     decode_access_token,
     generate_otp_code,
     hash_otp_code,
@@ -36,11 +25,20 @@ from app.core.security import (
 )
 from app.database import get_db
 from app.models import LoginOtp, Researcher, User, UserRole
-from app.schemas.auth import GoogleAuth, OtpRequired, ResendOtp, Token, UserLogin, UserOut, UserRegister, VerifyOtp
-
-
-# _____________
-
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    GoogleAuth,
+    NotificationPreferenceUpdate,
+    OtpRequired,
+    ResendOtp,
+    ResetPasswordRequest,
+    Token,
+    UserLogin,
+    UserOut,
+    UserRegister,
+    VerifyOtp,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
@@ -156,23 +154,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     return Token(access_token=token)
 
 
-# @router.post("/login-json", response_model=Token)
-# def login_json(payload: UserLogin, db: Session = Depends(get_db)):
-#     """Plain JSON login alternative, for non-Swagger clients (e.g. a future frontend)."""
-#     user = db.query(User).filter(User.email == payload.email).first()
-#     if not user or not verify_password(payload.password, user.hashed_password):
-#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
-#     if not user.is_active:
-#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
-#     if not user.is_verified:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Please verify your email before logging in. Check your inbox for the verification link.",
-#         )
-
-#     token = create_access_token(subject=str(user.id), extra_claims={"role": user.role.value})
-#     return Token(access_token=token)
-
 def _issue_login_otp(db: Session, user: User) -> None:
     """Invalidate any earlier unused codes, generate + store + email a fresh one."""
     db.query(LoginOtp).filter(LoginOtp.user_id == user.id, LoginOtp.used == False).update({"used": True})  # noqa: E712
@@ -218,6 +199,7 @@ def resend_login_otp(payload: ResendOtp, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if user and user.is_active and user.is_verified:
         _issue_login_otp(db, user)
+    # Same response either way — avoids revealing whether an email is registered.
     return {"message": "If that account exists, a new code has been sent."}
 
 
@@ -252,7 +234,7 @@ def google_login(payload: GoogleAuth, db: Session = Depends(get_db)):
     'Continue with Google'. Verifies the ID token Google's Identity Services
     JS library hands to the frontend, then logs in (or silently creates) the
     matching account. No OTP step here — Google has already authenticated
-    the person.
+    the person, so a second in-app factor would be redundant.
     """
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(
@@ -282,7 +264,7 @@ def google_login(payload: GoogleAuth, db: Session = Depends(get_db)):
 
         user = User(
             email=email,
-            hashed_password=hash_password(_secrets.token_urlsafe(32)),
+            hashed_password=hash_password(_secrets.token_urlsafe(32)),  # unusable placeholder — Google-only account
             role=UserRole.RESEARCHER,
             is_verified=True,
         )
@@ -297,10 +279,136 @@ def google_login(payload: GoogleAuth, db: Session = Depends(get_db)):
     token = create_access_token(subject=str(user.id), extra_claims={"role": user.role.value})
     return Token(access_token=token)
 
-# ____________
-
-
 
 @router.get("/me", response_model=UserOut)
 def read_current_user(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.put("/me/notification-preferences", response_model=UserOut)
+def update_notification_preferences(
+    payload: NotificationPreferenceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Real, persisted per-account preference — not a client-side-only toggle."""
+    current_user.email_notifications_enabled = payload.email_notifications_enabled
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+# ---------------------------------------------------------------------------
+# Forgot / reset password
+# ---------------------------------------------------------------------------
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Always returns the same generic message whether or not the email exists,
+    so this endpoint can't be used to check which emails are registered.
+    If the account exists and is active, a real, time-limited reset link is
+    emailed (or logged to the server console in dev mode, same as the OTP).
+    """
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user and user.is_active:
+        reset_token = create_password_reset_token(str(user.id))
+        reset_link = f"{settings.API_BASE_URL}/auth/reset-password?token={reset_token}"
+        send_password_reset_email(user.email, reset_link)
+    return {"message": "If that email is registered, a password reset link has been sent."}
+
+
+@router.get("/reset-password", response_class=HTMLResponse)
+def reset_password_page(token: str):
+    """
+    Serves a small, self-contained HTML page (no separate frontend needed)
+    so the link inside the reset email works no matter where the person's
+    copy of ResearchSphere.html happens to live on their machine. The page
+    posts the new password straight to /auth/reset-password below.
+    """
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Reset your password</title>
+<style>
+body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f4fb;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}}
+.card{{background:#fff;border-radius:16px;padding:32px;max-width:380px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,.08);}}
+h1{{font-size:20px;margin:0 0 6px;}}
+p{{color:#666;font-size:14px;margin:0 0 20px;}}
+input{{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;font-size:14px;}}
+button{{width:100%;padding:11px;border:none;border-radius:8px;background:#4B4FE0;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}}
+button:disabled{{opacity:.6;cursor:default;}}
+.msg{{font-size:13px;margin-top:12px;}}
+.err{{color:#d63d3d;}}
+.ok{{color:#1fa971;}}
+</style></head>
+<body><div class="card">
+<h1>Reset your password</h1>
+<p>Choose a new password below (at least 8 characters, with a letter and a number).</p>
+<input type="password" id="p1" placeholder="New password">
+<input type="password" id="p2" placeholder="Confirm new password">
+<button id="btn" onclick="submitReset()">Set new password</button>
+<div class="msg" id="msg"></div>
+<script>
+async function submitReset(){{
+  const p1 = document.getElementById('p1').value;
+  const p2 = document.getElementById('p2').value;
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('btn');
+  msg.className = 'msg';
+  if(p1.length < 8){{ msg.textContent = 'Password must be at least 8 characters.'; msg.className='msg err'; return; }}
+  if(p1 !== p2){{ msg.textContent = 'Passwords do not match.'; msg.className='msg err'; return; }}
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{{
+    const res = await fetch('/auth/reset-password', {{
+      method: 'POST', headers: {{'Content-Type':'application/json'}},
+      body: JSON.stringify({{token: {token!r}, new_password: p1}})
+    }});
+    const data = await res.json();
+    if(!res.ok) throw new Error((data.detail && (data.detail.length ? data.detail[0].msg : data.detail)) || 'Something went wrong.');
+    msg.textContent = 'Password updated. You can close this tab and sign in with your new password.';
+    msg.className = 'msg ok';
+    document.getElementById('p1').disabled = true;
+    document.getElementById('p2').disabled = true;
+    btn.style.display = 'none';
+  }}catch(err){{
+    msg.textContent = err.message;
+    msg.className = 'msg err';
+    btn.disabled = false; btn.textContent = 'Set new password';
+  }}
+}}
+</script>
+</div></body></html>"""
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    credentials_error = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link")
+    try:
+        decoded = decode_access_token(payload.token)
+    except Exception:
+        raise credentials_error
+    if decoded.get("purpose") != "password_reset":
+        raise credentials_error
+
+    user = db.get(User, decoded.get("sub"))
+    if not user:
+        raise credentials_error
+
+    user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password updated successfully."}
+
+
+@router.put("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """For a logged-in user who knows their current password and wants to set a new one."""
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must be different from the current password")
+    current_user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password changed successfully."}

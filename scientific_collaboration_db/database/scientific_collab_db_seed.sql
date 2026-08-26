@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict YwIbxMifGzmh2bNchKudf8UJQ0mb7Y9k6ts1jNmReDBInR4II41f6dmJQV7KBlG
+\restrict bZTySMbjAY1dZ99eiuolgBgaFbWM6n1nated6D844dCW9UumRitZc3eDIJT2CLh
 
 -- Dumped from database version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
@@ -212,6 +212,20 @@ CREATE TABLE public.institutions (
 
 
 --
+-- Name: login_otps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.login_otps (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    code_hash character varying(255) NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used boolean NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: project_members; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -302,7 +316,8 @@ CREATE TABLE public.researchers (
     orcid_id character varying(25),
     bio text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    avatar_url character varying(500)
 );
 
 
@@ -329,7 +344,8 @@ CREATE TABLE public.users (
     is_active boolean NOT NULL,
     is_verified boolean NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    email_notifications_enabled boolean NOT NULL
 );
 
 
@@ -338,7 +354,7 @@ CREATE TABLE public.users (
 --
 
 COPY public.alembic_version (version_num) FROM stdin;
-6186495bcc36
+32a5ee870ff7
 \.
 
 
@@ -347,6 +363,21 @@ COPY public.alembic_version (version_num) FROM stdin;
 --
 
 COPY public.audit_logs (id, user_id, action, entity_type, entity_id, details, ip_address, created_at) FROM stdin;
+6e0d3c24-6ce2-4c60-8468-68eae1a97dc2	3ab71c94-2c85-4781-b595-5fbd17b5db4d	CREATE	Conference	e8003e90-cf4e-450c-9852-df14fd7704e0	{"name": "Test Conf 2027"}	\N	2026-08-19 03:35:05.68521+00
+34b4131e-371d-405f-817d-97d6e9ffe9f5	3ab71c94-2c85-4781-b595-5fbd17b5db4d	CREATE	Institution	d9dae859-6b57-4fd4-8c90-0e03b2b0d944	{"name": "Test University of Playwright"}	\N	2026-08-25 19:30:13.698807+00
+422ba081-6ba7-4f84-8e5d-95e9af0b1144	3ab71c94-2c85-4781-b595-5fbd17b5db4d	CREATE	Researcher	b1f5e4b9-1368-43c1-954f-3bd2bc2d0874	{"email": "playwright.deleteme@example.com"}	\N	2026-08-26 03:51:34.500576+00
+a76ab5e3-92b3-45d2-b6b1-37a308eb20d0	3ab71c94-2c85-4781-b595-5fbd17b5db4d	UPDATE	User	4f566071-5ea1-4b91-be71-6018625d5dfa	{"fields": ["is_active"]}	\N	2026-08-26 03:51:35.233143+00
+8ca03df1-9055-45d5-a021-94990802dd7e	3ab71c94-2c85-4781-b595-5fbd17b5db4d	DELETE	User	4f566071-5ea1-4b91-be71-6018625d5dfa	{"email": "playwright.deleteme@example.com"}	\N	2026-08-26 03:51:36.817195+00
+8663e505-c3fd-43b4-b0a3-a031a862d89f	3ab71c94-2c85-4781-b595-5fbd17b5db4d	DELETE	User	262f7f28-8c4e-4641-9858-1f0a3c8905a7	{"email": "institution.admin@researchsphere.dev"}	\N	2026-08-26 03:51:38.434216+00
+fb995897-5c9e-4365-9879-227f390618ba	3ab71c94-2c85-4781-b595-5fbd17b5db4d	DELETE	Conference	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	{"name": "International Conference on Generate Leading-Edge E-Business"}	\N	2026-08-26 03:51:40.099063+00
+bfd11a57-c5f7-41da-ac1c-f748b6227c34	3ab71c94-2c85-4781-b595-5fbd17b5db4d	CREATE	Conference	93c33a46-8ce1-44b7-a896-e55c088dd287	{"name": "Playwright Delete-Test Conference"}	\N	2026-08-26 09:33:38.069748+00
+9f7b7a9b-5419-42fd-8207-a1d29cd90547	3ab71c94-2c85-4781-b595-5fbd17b5db4d	UPDATE	Conference	805e8aeb-395c-4d24-9297-e9d9215c416f	{"fields": ["name", "location", "website", "start_date", "end_date"]}	\N	2026-08-26 09:33:39.711432+00
+9436b3e2-db56-40f2-9cbb-f4c4cb40788f	3ab71c94-2c85-4781-b595-5fbd17b5db4d	DELETE	Conference	93c33a46-8ce1-44b7-a896-e55c088dd287	{"name": "Playwright Delete-Test Conference"}	\N	2026-08-26 09:33:40.679401+00
+9c9cb6c3-2d91-41ad-a03c-2597b9b67fd5	3ab71c94-2c85-4781-b595-5fbd17b5db4d	CREATE	Researcher	e0ddedec-4779-4311-99d1-2ffd9752a8cc	{"email": "delete-test-user@example.com"}	\N	2026-08-26 09:33:43.350454+00
+23d7b292-ab1d-4001-adad-4d48d1dd886b	3ab71c94-2c85-4781-b595-5fbd17b5db4d	CREATE	Conference	dfc12a64-39d3-4309-8586-909fe83ac320	{"name": "Playwright Delete-Test Conference"}	\N	2026-08-26 09:35:26.765763+00
+31c63820-28a8-4f36-96dc-a131de09f956	3ab71c94-2c85-4781-b595-5fbd17b5db4d	UPDATE	Conference	805e8aeb-395c-4d24-9297-e9d9215c416f	{"fields": ["name", "location", "website", "start_date", "end_date"]}	\N	2026-08-26 09:35:28.402098+00
+70b97218-9583-4e3e-89a6-e0b38ce1aba4	3ab71c94-2c85-4781-b595-5fbd17b5db4d	DELETE	Conference	dfc12a64-39d3-4309-8586-909fe83ac320	{"name": "Playwright Delete-Test Conference"}	\N	2026-08-26 09:35:29.465984+00
+948e0b45-d83d-49fa-94e1-c58b4a68fabd	3ab71c94-2c85-4781-b595-5fbd17b5db4d	DELETE	User	4f664fde-3e10-4eb6-a6e7-65f993f63b84	{"email": "delete-test-user@example.com"}	\N	2026-08-26 09:35:33.061428+00
 \.
 
 
@@ -447,15 +478,6 @@ d90f0296-c90e-4f7e-bc28-bbaf79f8b4db	fbef6df2-87d5-4c74-80d4-2943b2d90739	33b9cd
 2d0d3cf3-b925-4f87-b89e-a36c2de0c0b6	fbef6df2-87d5-4c74-80d4-2943b2d90739	c586faff-5d29-47ba-981a-d88e06187eec	00fc5533-b42d-4719-929f-5c7274281df1	PRESENTER	Standard believe politics also space high sister	2026-08-14 18:11:01.310566+00
 b1b67924-4eee-4d3e-b3a8-37e69d376518	fbef6df2-87d5-4c74-80d4-2943b2d90739	b55e4655-6bd7-44c8-9f13-bd763db2fbeb	\N	ATTENDEE	\N	2026-08-14 18:11:01.310566+00
 83a3df89-63cb-4d13-af27-eee142361004	fbef6df2-87d5-4c74-80d4-2943b2d90739	523b313b-2133-4286-a4ff-c2c1f49de6c6	ff038a64-ba2d-457b-8acf-db733fd9f68e	PRESENTER	Girl stage indicate test thank dinner	2026-08-14 18:11:01.310566+00
-6f3f6365-3ecf-4fed-bd31-d88e3b73d3fd	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	cb3a20c1-c454-4452-9212-7bc4e800ee3e	\N	REVIEWER	\N	2026-08-14 18:11:01.310566+00
-ddcb5311-3e08-45fb-a565-405bdec4d064	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	d34e909b-04b0-4e95-8b5f-712c1cb3aff3	\N	REVIEWER	\N	2026-08-14 18:11:01.310566+00
-7e0d01ec-9f1e-4364-b9d5-d32918e4fbdc	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	09127010-708d-491d-a823-9bfbfa417b90	0507ea92-778e-496b-829f-0b8fada69a1a	PRESENTER	Up plant place approach modern floor north force	2026-08-14 18:11:01.310566+00
-dd12b55b-12e6-4ffd-8b11-502a588e16ec	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	4c0075d2-ea71-40f6-a60a-c442557efd85	\N	ORGANIZER	\N	2026-08-14 18:11:01.310566+00
-8b081e96-9f27-485d-bfc6-135a78381060	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	6734f508-b66f-4566-977a-65bceaf98497	\N	REVIEWER	\N	2026-08-14 18:11:01.310566+00
-85c563e7-975d-48ad-9a34-639410efe5f7	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	06409b16-4619-4501-b1d5-b096c6e26201	\N	ORGANIZER	\N	2026-08-14 18:11:01.310566+00
-edc681ac-48fa-4252-8df6-3aa27f31f4bb	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	5c451bd9-59fa-468f-bda4-882e46960305	\N	ORGANIZER	\N	2026-08-14 18:11:01.310566+00
-d5693745-bc2a-4587-a39d-456bd00d406c	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	33b9cded-9912-4f7c-948d-bf43517357cb	dd4dafa6-23d4-44b8-88fc-54a480e0f779	PRESENTER	Check purpose young wife send	2026-08-14 18:11:01.310566+00
-1144ee08-8c41-46c9-86a2-9c2993e9559b	e1d47d06-5926-40c1-8c47-9bd1a9ab80be	c28aab08-997a-444e-9b2a-a1a0f5a24732	\N	ATTENDEE	\N	2026-08-14 18:11:01.310566+00
 804861e3-88c4-4b79-84ef-8571d6bf5827	805e8aeb-395c-4d24-9297-e9d9215c416f	c586faff-5d29-47ba-981a-d88e06187eec	bc6b8a77-87b1-4935-8aff-244cedf6adeb	PRESENTER	Measure develop face hour car bar number	2026-08-14 18:11:01.310566+00
 512b0103-f6af-4ae2-b3b8-070b54016129	805e8aeb-395c-4d24-9297-e9d9215c416f	4c0075d2-ea71-40f6-a60a-c442557efd85	b52bae1b-4310-4b87-8c83-1e5fff7dc509	PRESENTER	Nature energy huge	2026-08-14 18:11:01.310566+00
 ac026a95-c6dc-44b3-9387-5bffb3ee5340	805e8aeb-395c-4d24-9297-e9d9215c416f	518ab5a4-b1ae-45d5-b028-c0492d74c175	\N	ORGANIZER	\N	2026-08-14 18:11:01.310566+00
@@ -483,9 +505,8 @@ COPY public.conferences (id, name, location, website, start_date, end_date, crea
 c8a66f8c-3093-4373-9967-7baf9b7ad418	International Conference on Incubate Integrated Solutions	Cannonberg, New Zealand	https://davidson-rodriguez.net/	2026-08-04	2026-08-08	2026-08-14 18:11:01.310566+00
 aed0ca42-25c3-450b-bd7f-579654f885ee	International Conference on Integrate End-To-End Roi	East Danielborough, Bolivia	http://burns.com/	2026-08-05	2026-08-09	2026-08-14 18:11:01.310566+00
 fbef6df2-87d5-4c74-80d4-2943b2d90739	International Conference on Expedite Intuitive Synergies	Lake Travis, Tuvalu	http://brown.biz/	2025-09-18	2025-09-21	2026-08-14 18:11:01.310566+00
-e1d47d06-5926-40c1-8c47-9bd1a9ab80be	International Conference on Generate Leading-Edge E-Business	Allisonland, Syrian Arab Republic	https://www.yu.com/	2027-01-30	2027-02-03	2026-08-14 18:11:01.310566+00
-805e8aeb-395c-4d24-9297-e9d9215c416f	International Conference on Incubate Integrated Solutions	New Diane, Montenegro	http://garcia.info/	2026-10-16	2026-10-19	2026-08-14 18:11:01.310566+00
 86e77718-be5a-49c6-88ba-892404f05f92	International Conference on Brand Sticky Communities	New Richard, Guadeloupe	http://orr-pierce.com/	2026-09-21	2026-09-22	2026-08-14 18:11:01.310566+00
+805e8aeb-395c-4d24-9297-e9d9215c416f	International Conference on Incubate Integrated Solutions	Updated Location, Testland	http://garcia.info/	2026-10-16	2026-10-19	2026-08-14 18:11:01.310566+00
 \.
 
 
@@ -500,6 +521,14 @@ e893353b-5e17-4b8e-8f8f-72f84e13be94	South Joshuastad University	Central African
 fe76c92f-e973-45ca-9df1-1c6af7b8a105	Adamsborough University	United States Minor Outlying Islands	USNV Lewis\nFPO AA 52357	https://www.taylor-mcgee.net/	university	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
 542a3fc3-c5b9-4fc6-8b40-156c55077771	Juliechester Research Center	Ukraine	28710 Eric Estate Suite 916\nCarlsonmouth, NC 33454	http://www.dyer.com/	funding_organization	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
 0b7ee577-5db0-4984-bb45-6a0b6f221a99	West Ryanmouth University	Afghanistan	USNV Stanton\nFPO AE 67043	http://romero.com/	funding_organization	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
+\.
+
+
+--
+-- Data for Name: login_otps; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.login_otps (id, user_id, code_hash, expires_at, used, created_at) FROM stdin;
 \.
 
 
@@ -783,27 +812,27 @@ c586faff-5d29-47ba-981a-d88e06187eec	6e397eb7-5486-40d5-b2f3-d84bed970b70
 -- Data for Name: researchers; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.researchers (id, user_id, institution_id, full_name, department, academic_title, orcid_id, bio, created_at, updated_at) FROM stdin;
-a4ada868-9e1b-4f36-aba4-36de7818dcb8	e31e92f6-b5cd-4f32-89b0-f7e0f60fce6c	fe76c92f-e973-45ca-9df1-1c6af7b8a105	Sherry Decker	Computer Science	Professor	0000-0001-4582-4811	Around there water beat magazine. Within mouth call process.\nEnter their institution deep. Sense ready require human public health tonight. Building different full open discover detail audience.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-d34e909b-04b0-4e95-8b5f-712c1cb3aff3	98b249da-4683-49ae-9816-219d5e88bc28	0b7ee577-5db0-4984-bb45-6a0b6f221a99	Clifford Ford	Engineering	Research Scientist	0000-0002-4611-8359	Space task better present music address. Unit support coach magazine.\nTotal clearly able hospital unit size. Institution whatever yet new responsibility.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-c28aab08-997a-444e-9b2a-a1a0f5a24732	8c111f53-82bc-4a04-9266-43038fa783a1	0b7ee577-5db0-4984-bb45-6a0b6f221a99	Barry Hensley	Chemistry	Postdoctoral Researcher	0000-0002-3547-4527	Walk now often always. Information on mission various. Prove fire enter capital population.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-3355eb65-55df-42bf-a3b6-7d8248931e82	89502bcf-b017-4a0e-973b-6b2de3645509	fb075e07-3b72-496a-aad5-56344e096cb2	Natalie Moore	Biology	Postdoctoral Researcher	0000-0003-5333-1711	Decision garden reach table measure economy traditional anything. Stop analysis four capital woman claim.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-33b9cded-9912-4f7c-948d-bf43517357cb	8be42812-a925-40d3-a126-67dd60185abf	fb075e07-3b72-496a-aad5-56344e096cb2	Nicole Frost	Mathematics	Postdoctoral Researcher	0000-0003-6925-4150	Wish specific thing agent. Site in prove same easy city.\nThe teach develop staff least figure. Development process huge everything attorney.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-09127010-708d-491d-a823-9bfbfa417b90	690410a3-7272-493b-a4e6-5453d9be8f66	fb075e07-3b72-496a-aad5-56344e096cb2	Cheryl Williams	Physics	Professor	0000-0002-5554-8428	Mind southern rather. Hair attorney professional form finish. Rest feel finally impact.\nNever court professor here security. Past feeling nature a. Decision size parent focus kid.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-b55e4655-6bd7-44c8-9f13-bd763db2fbeb	8a2d6529-7abd-4364-9540-11912547f543	72e01afd-44ae-43a2-9176-9c9141919ac8	Stephen Johnston	Engineering	Postdoctoral Researcher	0000-0003-2169-3803	Hundred challenge reach throughout team those sing. Compare when military anyone eat. Lead soon property write.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-5c451bd9-59fa-468f-bda4-882e46960305	4eff9dc0-b6e7-492d-bee1-3186ca4a3f4e	fe76c92f-e973-45ca-9df1-1c6af7b8a105	Daniel Fisher	Biology	Research Scientist	0000-0001-6313-1916	Task she herself. Wall fear hope. Mrs same son today major event. Ahead from quickly identify close level camera.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-cb3a20c1-c454-4452-9212-7bc4e800ee3e	11b7b056-32a9-4824-98c1-1d5b0e8183fa	e893353b-5e17-4b8e-8f8f-72f84e13be94	Andre Wright	Computer Science	Associate Professor	0000-0003-6155-4483	Charge call prove nor design record short cold.\nSing clearly find official. Office traditional heart walk cup. Real physical big significant sure outside building worker. Girl into have.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-518ab5a4-b1ae-45d5-b028-c0492d74c175	66382120-b3bb-4575-bddd-077dfbf62091	e893353b-5e17-4b8e-8f8f-72f84e13be94	Jamie Johnson	Physics	Associate Professor	0000-0003-9830-5304	Maintain great election evidence. Red everybody act way beat result major serve. Position make society behavior develop reality fill.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-06409b16-4619-4501-b1d5-b096c6e26201	41cc97db-e8da-40fc-b33f-11e77be6680f	e893353b-5e17-4b8e-8f8f-72f84e13be94	Tony Little	Physics	Associate Professor	0000-0003-9085-2489	Their off light key. Whole education technology box. Husband available picture approach.\nWe be easy newspaper indicate other peace. Herself training father open investment notice art.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-8727c10d-53c2-41bd-9b5b-6475b544c1cd	7428238c-3b9f-4cb0-b60a-347c90c4763c	0b7ee577-5db0-4984-bb45-6a0b6f221a99	David Baker	Chemistry	Research Scientist	0000-0001-7304-7252	Product value interesting name positive training step author. Society organization station TV. Buy read record wall matter management. Our threat same page.\nDirector purpose team onto.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-523b313b-2133-4286-a4ff-c2c1f49de6c6	cc3f4dc2-76d5-4ce7-bda2-f35f46bdde04	542a3fc3-c5b9-4fc6-8b40-156c55077771	Tracy Harrison	Computer Science	Professor	0000-0003-9797-5371	Fly bit claim in many production. Spend nearly lawyer fire follow wife. Ten stay ability thank left approach.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-c586faff-5d29-47ba-981a-d88e06187eec	c772dbcb-9e87-42cf-867e-80b088df835a	72e01afd-44ae-43a2-9176-9c9141919ac8	Dr. Jordan Hill PhD	Chemistry	Professor	0000-0003-5315-9201	Lead certain course out second. Tell everybody so increase. Environment able rise study oil process tend.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-54a8702d-c438-41ef-90db-8a16f87283b7	5b33d6ea-5ab8-4dda-87bf-524ffb156597	0b7ee577-5db0-4984-bb45-6a0b6f221a99	Alexis Thomas	Mathematics	Research Scientist	0000-0001-3504-7126	Light wide full realize. System system teacher here.\nResponsibility service their along attention piece TV young. Its better plant their. Coach federal ahead food argue grow.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-4c0075d2-ea71-40f6-a60a-c442557efd85	3c348e00-1b8b-421a-a37e-4b0ac3eb5e91	542a3fc3-c5b9-4fc6-8b40-156c55077771	Victor Vaughn	Biology	PhD Candidate	0000-0001-2832-6947	Current his low down occur. Fast recognize against stop how account ten. Treat seat strategy.\nParent good PM per question. Pick tough position final.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-75724587-3aad-4f07-92b0-2ea0eb3a6aac	7ba8716a-9273-4b37-be16-704d70f54b58	542a3fc3-c5b9-4fc6-8b40-156c55077771	Brenda Levy	Computer Science	Professor	0000-0003-8962-2133	Hand so add Mr lawyer pull public. Herself police he push likely people wall foreign. Determine as statement travel few impact cause watch.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-333ef9d3-4f76-487d-8e91-375c8588dbeb	c5903f6d-079a-4f17-b8d5-7fbbb07c5508	542a3fc3-c5b9-4fc6-8b40-156c55077771	David Cox	Physics	Postdoctoral Researcher	0000-0003-7932-4470	Top population art every why we station. Production politics others again. During call north attention share debate.\nForget challenge too able teach. Would music sometimes body.\nAddress so draw food.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-6734f508-b66f-4566-977a-65bceaf98497	5acecdbb-611f-4272-afe1-98665f118aba	0b7ee577-5db0-4984-bb45-6a0b6f221a99	Jessica Rodriguez	Engineering	Postdoctoral Researcher	0000-0002-9479-8397	Tonight focus chance call. Plan nature foot yes most law painting between. Table prepare shoulder result.\nLater direction fund law indeed believe. Fine effort well rather listen before.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-b01d8db2-2788-4243-881b-ab6f489d5fcd	3b277ce0-d701-462f-bfc0-67624b0c5087	fb075e07-3b72-496a-aad5-56344e096cb2	Researcher Demo	Computer Science	Researcher	\N	\N	2026-08-14 18:11:40.773146+00	2026-08-14 18:11:40.773146+00
+COPY public.researchers (id, user_id, institution_id, full_name, department, academic_title, orcid_id, bio, created_at, updated_at, avatar_url) FROM stdin;
+a4ada868-9e1b-4f36-aba4-36de7818dcb8	e31e92f6-b5cd-4f32-89b0-f7e0f60fce6c	fe76c92f-e973-45ca-9df1-1c6af7b8a105	Sherry Decker	Computer Science	Professor	0000-0001-4582-4811	Around there water beat magazine. Within mouth call process.\nEnter their institution deep. Sense ready require human public health tonight. Building different full open discover detail audience.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+d34e909b-04b0-4e95-8b5f-712c1cb3aff3	98b249da-4683-49ae-9816-219d5e88bc28	0b7ee577-5db0-4984-bb45-6a0b6f221a99	Clifford Ford	Engineering	Research Scientist	0000-0002-4611-8359	Space task better present music address. Unit support coach magazine.\nTotal clearly able hospital unit size. Institution whatever yet new responsibility.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+c28aab08-997a-444e-9b2a-a1a0f5a24732	8c111f53-82bc-4a04-9266-43038fa783a1	0b7ee577-5db0-4984-bb45-6a0b6f221a99	Barry Hensley	Chemistry	Postdoctoral Researcher	0000-0002-3547-4527	Walk now often always. Information on mission various. Prove fire enter capital population.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+3355eb65-55df-42bf-a3b6-7d8248931e82	89502bcf-b017-4a0e-973b-6b2de3645509	fb075e07-3b72-496a-aad5-56344e096cb2	Natalie Moore	Biology	Postdoctoral Researcher	0000-0003-5333-1711	Decision garden reach table measure economy traditional anything. Stop analysis four capital woman claim.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+33b9cded-9912-4f7c-948d-bf43517357cb	8be42812-a925-40d3-a126-67dd60185abf	fb075e07-3b72-496a-aad5-56344e096cb2	Nicole Frost	Mathematics	Postdoctoral Researcher	0000-0003-6925-4150	Wish specific thing agent. Site in prove same easy city.\nThe teach develop staff least figure. Development process huge everything attorney.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+09127010-708d-491d-a823-9bfbfa417b90	690410a3-7272-493b-a4e6-5453d9be8f66	fb075e07-3b72-496a-aad5-56344e096cb2	Cheryl Williams	Physics	Professor	0000-0002-5554-8428	Mind southern rather. Hair attorney professional form finish. Rest feel finally impact.\nNever court professor here security. Past feeling nature a. Decision size parent focus kid.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+b55e4655-6bd7-44c8-9f13-bd763db2fbeb	8a2d6529-7abd-4364-9540-11912547f543	72e01afd-44ae-43a2-9176-9c9141919ac8	Stephen Johnston	Engineering	Postdoctoral Researcher	0000-0003-2169-3803	Hundred challenge reach throughout team those sing. Compare when military anyone eat. Lead soon property write.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+5c451bd9-59fa-468f-bda4-882e46960305	4eff9dc0-b6e7-492d-bee1-3186ca4a3f4e	fe76c92f-e973-45ca-9df1-1c6af7b8a105	Daniel Fisher	Biology	Research Scientist	0000-0001-6313-1916	Task she herself. Wall fear hope. Mrs same son today major event. Ahead from quickly identify close level camera.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+cb3a20c1-c454-4452-9212-7bc4e800ee3e	11b7b056-32a9-4824-98c1-1d5b0e8183fa	e893353b-5e17-4b8e-8f8f-72f84e13be94	Andre Wright	Computer Science	Associate Professor	0000-0003-6155-4483	Charge call prove nor design record short cold.\nSing clearly find official. Office traditional heart walk cup. Real physical big significant sure outside building worker. Girl into have.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+518ab5a4-b1ae-45d5-b028-c0492d74c175	66382120-b3bb-4575-bddd-077dfbf62091	e893353b-5e17-4b8e-8f8f-72f84e13be94	Jamie Johnson	Physics	Associate Professor	0000-0003-9830-5304	Maintain great election evidence. Red everybody act way beat result major serve. Position make society behavior develop reality fill.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+06409b16-4619-4501-b1d5-b096c6e26201	41cc97db-e8da-40fc-b33f-11e77be6680f	e893353b-5e17-4b8e-8f8f-72f84e13be94	Tony Little	Physics	Associate Professor	0000-0003-9085-2489	Their off light key. Whole education technology box. Husband available picture approach.\nWe be easy newspaper indicate other peace. Herself training father open investment notice art.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+8727c10d-53c2-41bd-9b5b-6475b544c1cd	7428238c-3b9f-4cb0-b60a-347c90c4763c	0b7ee577-5db0-4984-bb45-6a0b6f221a99	David Baker	Chemistry	Research Scientist	0000-0001-7304-7252	Product value interesting name positive training step author. Society organization station TV. Buy read record wall matter management. Our threat same page.\nDirector purpose team onto.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+523b313b-2133-4286-a4ff-c2c1f49de6c6	cc3f4dc2-76d5-4ce7-bda2-f35f46bdde04	542a3fc3-c5b9-4fc6-8b40-156c55077771	Tracy Harrison	Computer Science	Professor	0000-0003-9797-5371	Fly bit claim in many production. Spend nearly lawyer fire follow wife. Ten stay ability thank left approach.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+c586faff-5d29-47ba-981a-d88e06187eec	c772dbcb-9e87-42cf-867e-80b088df835a	72e01afd-44ae-43a2-9176-9c9141919ac8	Dr. Jordan Hill PhD	Chemistry	Professor	0000-0003-5315-9201	Lead certain course out second. Tell everybody so increase. Environment able rise study oil process tend.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+54a8702d-c438-41ef-90db-8a16f87283b7	5b33d6ea-5ab8-4dda-87bf-524ffb156597	0b7ee577-5db0-4984-bb45-6a0b6f221a99	Alexis Thomas	Mathematics	Research Scientist	0000-0001-3504-7126	Light wide full realize. System system teacher here.\nResponsibility service their along attention piece TV young. Its better plant their. Coach federal ahead food argue grow.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+4c0075d2-ea71-40f6-a60a-c442557efd85	3c348e00-1b8b-421a-a37e-4b0ac3eb5e91	542a3fc3-c5b9-4fc6-8b40-156c55077771	Victor Vaughn	Biology	PhD Candidate	0000-0001-2832-6947	Current his low down occur. Fast recognize against stop how account ten. Treat seat strategy.\nParent good PM per question. Pick tough position final.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+75724587-3aad-4f07-92b0-2ea0eb3a6aac	7ba8716a-9273-4b37-be16-704d70f54b58	542a3fc3-c5b9-4fc6-8b40-156c55077771	Brenda Levy	Computer Science	Professor	0000-0003-8962-2133	Hand so add Mr lawyer pull public. Herself police he push likely people wall foreign. Determine as statement travel few impact cause watch.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+333ef9d3-4f76-487d-8e91-375c8588dbeb	c5903f6d-079a-4f17-b8d5-7fbbb07c5508	542a3fc3-c5b9-4fc6-8b40-156c55077771	David Cox	Physics	Postdoctoral Researcher	0000-0003-7932-4470	Top population art every why we station. Production politics others again. During call north attention share debate.\nForget challenge too able teach. Would music sometimes body.\nAddress so draw food.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+6734f508-b66f-4566-977a-65bceaf98497	5acecdbb-611f-4272-afe1-98665f118aba	0b7ee577-5db0-4984-bb45-6a0b6f221a99	Jessica Rodriguez	Engineering	Postdoctoral Researcher	0000-0002-9479-8397	Tonight focus chance call. Plan nature foot yes most law painting between. Table prepare shoulder result.\nLater direction fund law indeed believe. Fine effort well rather listen before.	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	\N
+b01d8db2-2788-4243-881b-ab6f489d5fcd	3b277ce0-d701-462f-bfc0-67624b0c5087	fb075e07-3b72-496a-aad5-56344e096cb2	Researcher Demo	Computer Science	Researcher	\N	\N	2026-08-14 18:11:40.773146+00	2026-08-23 15:26:46.504194+00	\N
 \.
 
 
@@ -832,6 +861,13 @@ de675499-001c-415d-ada0-8758207acd5c	Public Health	RESEARCH_INTEREST
 371585b4-03e1-42e5-af74-8475deba4af7	Sustainable Agriculture	RESEARCH_INTEREST
 8c9a442a-f877-4ab9-83bc-63e1e5fc3c05	Urban Planning	RESEARCH_INTEREST
 8b95dcd6-40ee-440d-b84c-5a8a82eddce0	Ethics in AI	RESEARCH_INTEREST
+f1021a87-9852-4f47-aa8a-d4ccff4ab712	Python	SKILL
+3a6467ca-7143-42f4-8b5d-9d0d89226dbe	NLP	RESEARCH_INTEREST
+d3a032bf-ceab-4f10-a247-82cf41b1782b	Climate Science	RESEARCH_INTEREST
+31d83cdc-7bf2-45e4-a14e-7718f5a4315e	Deep Learning	SKILL
+0a5cc125-f1d4-4825-b63e-872b17122266	Rust	SKILL
+b4073237-185d-4337-ad84-f1c5e799274d	Robotics Ethics	RESEARCH_INTEREST
+bb41de16-9d12-4d64-b175-e8db9e648841	Robotics	RESEARCH_INTEREST
 \.
 
 
@@ -839,30 +875,30 @@ de675499-001c-415d-ada0-8758207acd5c	Public Health	RESEARCH_INTEREST
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.users (id, email, hashed_password, role, is_active, is_verified, created_at, updated_at) FROM stdin;
-e31e92f6-b5cd-4f32-89b0-f7e0f60fce6c	georgetracy@example.org	$2b$12$Yill6AdKzyJL1bZz24j.f.I0CZZd35vLb0zMEjxEjGZ5fqqgNSIvC	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-98b249da-4683-49ae-9816-219d5e88bc28	wrightjames@example.com	$2b$12$FjT.RLbNCoH8csd4.kCXhef73Wu2yS6hOkAYFsYsTD16a7BvAWpQS	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-8c111f53-82bc-4a04-9266-43038fa783a1	yuchristopher@example.org	$2b$12$QFHxXKnshiCes3hqHmZbGe3vmmj8LSyIPkp3mEB5u1jxyjLuH4sry	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-89502bcf-b017-4a0e-973b-6b2de3645509	mcmillandennis@example.org	$2b$12$hHmrOTSsv4sy3BL1u4wbhuJ53uJjB6a/nv/5p444vQT4EDlAuh9i.	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-8be42812-a925-40d3-a126-67dd60185abf	gomezanita@example.com	$2b$12$ZCYWFnqrjnyu4lrCpS6U/uRCgZPKxV0nDpg6RVIFL2ZpSvE8FkhNS	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-690410a3-7272-493b-a4e6-5453d9be8f66	samuel81@example.com	$2b$12$wURxYOanxmBcywe9u3XsbOFd7dECfFWCjPfmkQZfjy/4ZTT4Oh9Hm	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-8a2d6529-7abd-4364-9540-11912547f543	sanchezthomas@example.org	$2b$12$59eN0RtVGfgsOlSQfhesq.S/7CYnKMld0FWX3v4jTxMlZWFlYzaKm	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-4eff9dc0-b6e7-492d-bee1-3186ca4a3f4e	perrymark@example.com	$2b$12$3pumrbuAEhVRWVKOd63SPOA2slWIpkpwGE8iDRjSd3ZzKy6rKc1a6	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-11b7b056-32a9-4824-98c1-1d5b0e8183fa	debraharrington@example.net	$2b$12$NGys6Oq46VbUwlfWTqhhCuoj/aGAG.5pMVK5EewJ7zXlHEfR18OsG	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-66382120-b3bb-4575-bddd-077dfbf62091	dsanchez@example.net	$2b$12$3SFg8PDHAGihwXk20lpGGe.FG./ByLygHfsWOD9LSKtEVBzUOk7Eq	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-41cc97db-e8da-40fc-b33f-11e77be6680f	joshuamccann@example.net	$2b$12$O0wABt8LIYV7g/9t8hpbj.IDj/x3YS7uJqLjRgmqsEIrvapjt3hVW	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-7428238c-3b9f-4cb0-b60a-347c90c4763c	keithcampbell@example.com	$2b$12$/6oKc9i5lCCQFrWDroJl4u3x1w5JlfmlpEOGR9T2uFl19NkZBw38e	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-cc3f4dc2-76d5-4ce7-bda2-f35f46bdde04	howard96@example.net	$2b$12$KZPM7IhvkaS4h9PjQ9dsHejh7vlJquew4sRI8kAhHt/AAybuL5fg.	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-c772dbcb-9e87-42cf-867e-80b088df835a	murraydavid@example.org	$2b$12$OhOXXqun6vJd7K5AuY1TieC3YQOkh.vRetqQwF6E14VWG4eKUWpBK	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-5b33d6ea-5ab8-4dda-87bf-524ffb156597	molly71@example.net	$2b$12$mCDS/B2F3l6tvqfXGOgNm.kTInG2POXav3PxWMuyMmjhPyvy7B68W	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-3c348e00-1b8b-421a-a37e-4b0ac3eb5e91	charleslandry@example.net	$2b$12$ayBIvQ2Y5d30jSz0gpxdCuQIpYrXKGvaTtrSSz0avsE3mIvqkgk/a	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-7ba8716a-9273-4b37-be16-704d70f54b58	julie51@example.com	$2b$12$j/6BA0vZoklFRSq9oLCgIOxkb5S6mSvEWrsteTwg91G7snuR1YweW	INSTITUTION_ADMIN	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-c5903f6d-079a-4f17-b8d5-7fbbb07c5508	antonio53@example.com	$2b$12$1qP.tMK0Np2DRRSgMD2/oO3F4h2gkGOk8ummmHmXTt4xw1y3qNf1G	REVIEWER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-5acecdbb-611f-4272-afe1-98665f118aba	stephen00@example.com	$2b$12$JAXd017mkETfj4kux7D3/.ZjcF1w6h4yAUPNCqSVPiIQuc65jhtaK	SYSTEM_ADMIN	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00
-3ab71c94-2c85-4781-b595-5fbd17b5db4d	admin@researchsphere.dev	$2b$12$MCB1Xw/Sdw8BzsMWUh45pOvpGcgQAjm6371P3yLEu6uv1zcYwwdXy	SYSTEM_ADMIN	t	t	2026-08-14 18:11:39.94785+00	2026-08-14 18:11:39.94785+00
-262f7f28-8c4e-4641-9858-1f0a3c8905a7	institution.admin@researchsphere.dev	$2b$12$Hxg2O2ER/TNvRGHsJ.COxuFMHnJ9VU3aQXAS.rgI8XTgLWoxruZAe	INSTITUTION_ADMIN	t	t	2026-08-14 18:11:40.242449+00	2026-08-14 18:11:40.242449+00
-08453c67-f6d7-4c3e-8412-3db6b4cf3b72	reviewer@researchsphere.dev	$2b$12$WBS3fzqyg1daNKwYjutrMe9zKqG3.EG54T2.zTS7McL.6C00.72Di	REVIEWER	t	t	2026-08-14 18:11:40.504325+00	2026-08-14 18:11:40.504325+00
-3b277ce0-d701-462f-bfc0-67624b0c5087	researcher@researchsphere.dev	$2b$12$F68sY.ndaKqZ54166ssRre.y.y7fhLLZZR88bLokDQg1RtFtaDHFS	RESEARCHER	t	t	2026-08-14 18:11:40.773146+00	2026-08-14 18:11:40.773146+00
+COPY public.users (id, email, hashed_password, role, is_active, is_verified, created_at, updated_at, email_notifications_enabled) FROM stdin;
+e31e92f6-b5cd-4f32-89b0-f7e0f60fce6c	georgetracy@example.org	$2b$12$Yill6AdKzyJL1bZz24j.f.I0CZZd35vLb0zMEjxEjGZ5fqqgNSIvC	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+98b249da-4683-49ae-9816-219d5e88bc28	wrightjames@example.com	$2b$12$FjT.RLbNCoH8csd4.kCXhef73Wu2yS6hOkAYFsYsTD16a7BvAWpQS	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+8c111f53-82bc-4a04-9266-43038fa783a1	yuchristopher@example.org	$2b$12$QFHxXKnshiCes3hqHmZbGe3vmmj8LSyIPkp3mEB5u1jxyjLuH4sry	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+89502bcf-b017-4a0e-973b-6b2de3645509	mcmillandennis@example.org	$2b$12$hHmrOTSsv4sy3BL1u4wbhuJ53uJjB6a/nv/5p444vQT4EDlAuh9i.	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+8be42812-a925-40d3-a126-67dd60185abf	gomezanita@example.com	$2b$12$ZCYWFnqrjnyu4lrCpS6U/uRCgZPKxV0nDpg6RVIFL2ZpSvE8FkhNS	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+690410a3-7272-493b-a4e6-5453d9be8f66	samuel81@example.com	$2b$12$wURxYOanxmBcywe9u3XsbOFd7dECfFWCjPfmkQZfjy/4ZTT4Oh9Hm	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+8a2d6529-7abd-4364-9540-11912547f543	sanchezthomas@example.org	$2b$12$59eN0RtVGfgsOlSQfhesq.S/7CYnKMld0FWX3v4jTxMlZWFlYzaKm	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+4eff9dc0-b6e7-492d-bee1-3186ca4a3f4e	perrymark@example.com	$2b$12$3pumrbuAEhVRWVKOd63SPOA2slWIpkpwGE8iDRjSd3ZzKy6rKc1a6	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+11b7b056-32a9-4824-98c1-1d5b0e8183fa	debraharrington@example.net	$2b$12$NGys6Oq46VbUwlfWTqhhCuoj/aGAG.5pMVK5EewJ7zXlHEfR18OsG	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+66382120-b3bb-4575-bddd-077dfbf62091	dsanchez@example.net	$2b$12$3SFg8PDHAGihwXk20lpGGe.FG./ByLygHfsWOD9LSKtEVBzUOk7Eq	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+41cc97db-e8da-40fc-b33f-11e77be6680f	joshuamccann@example.net	$2b$12$O0wABt8LIYV7g/9t8hpbj.IDj/x3YS7uJqLjRgmqsEIrvapjt3hVW	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+7428238c-3b9f-4cb0-b60a-347c90c4763c	keithcampbell@example.com	$2b$12$/6oKc9i5lCCQFrWDroJl4u3x1w5JlfmlpEOGR9T2uFl19NkZBw38e	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+cc3f4dc2-76d5-4ce7-bda2-f35f46bdde04	howard96@example.net	$2b$12$KZPM7IhvkaS4h9PjQ9dsHejh7vlJquew4sRI8kAhHt/AAybuL5fg.	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+c772dbcb-9e87-42cf-867e-80b088df835a	murraydavid@example.org	$2b$12$OhOXXqun6vJd7K5AuY1TieC3YQOkh.vRetqQwF6E14VWG4eKUWpBK	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+5b33d6ea-5ab8-4dda-87bf-524ffb156597	molly71@example.net	$2b$12$mCDS/B2F3l6tvqfXGOgNm.kTInG2POXav3PxWMuyMmjhPyvy7B68W	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+3c348e00-1b8b-421a-a37e-4b0ac3eb5e91	charleslandry@example.net	$2b$12$ayBIvQ2Y5d30jSz0gpxdCuQIpYrXKGvaTtrSSz0avsE3mIvqkgk/a	RESEARCHER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+7ba8716a-9273-4b37-be16-704d70f54b58	julie51@example.com	$2b$12$j/6BA0vZoklFRSq9oLCgIOxkb5S6mSvEWrsteTwg91G7snuR1YweW	INSTITUTION_ADMIN	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+c5903f6d-079a-4f17-b8d5-7fbbb07c5508	antonio53@example.com	$2b$12$1qP.tMK0Np2DRRSgMD2/oO3F4h2gkGOk8ummmHmXTt4xw1y3qNf1G	REVIEWER	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+5acecdbb-611f-4272-afe1-98665f118aba	stephen00@example.com	$2b$12$JAXd017mkETfj4kux7D3/.ZjcF1w6h4yAUPNCqSVPiIQuc65jhtaK	SYSTEM_ADMIN	t	t	2026-08-14 18:11:01.310566+00	2026-08-14 18:11:01.310566+00	t
+3ab71c94-2c85-4781-b595-5fbd17b5db4d	admin@researchsphere.dev	$2b$12$MCB1Xw/Sdw8BzsMWUh45pOvpGcgQAjm6371P3yLEu6uv1zcYwwdXy	SYSTEM_ADMIN	t	t	2026-08-14 18:11:39.94785+00	2026-08-14 18:11:39.94785+00	t
+08453c67-f6d7-4c3e-8412-3db6b4cf3b72	reviewer@researchsphere.dev	$2b$12$WBS3fzqyg1daNKwYjutrMe9zKqG3.EG54T2.zTS7McL.6C00.72Di	REVIEWER	t	t	2026-08-14 18:11:40.504325+00	2026-08-14 18:11:40.504325+00	t
+3b277ce0-d701-462f-bfc0-67624b0c5087	researcher@researchsphere.dev	$2b$12$FDAcsJSdf0mBXfF.ANPwjuIyuLsdU1nWFaFEi7eZNbRkD4ixEUEZG	RESEARCHER	t	t	2026-08-14 18:11:40.773146+00	2026-08-22 14:28:05.356292+00	t
+f1f2a6e5-67db-40d2-806a-6ea1d7d3aef1	institution.admin@researchsphere.dev	$2b$12$r7KZX.8ZXYFKg66vxYSbnOv5EN3tW8oJRY6tWF4xacO8LD5PqUREe	INSTITUTION_ADMIN	t	t	2026-08-26 03:52:22.756817+00	2026-08-26 03:52:22.756817+00	t
 \.
 
 
@@ -920,6 +956,14 @@ ALTER TABLE ONLY public.conferences
 
 ALTER TABLE ONLY public.institutions
     ADD CONSTRAINT institutions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: login_otps login_otps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.login_otps
+    ADD CONSTRAINT login_otps_pkey PRIMARY KEY (id);
 
 
 --
@@ -1125,6 +1169,14 @@ ALTER TABLE ONLY public.conference_participations
 
 
 --
+-- Name: login_otps login_otps_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.login_otps
+    ADD CONSTRAINT login_otps_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: project_members project_members_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1216,5 +1268,5 @@ ALTER TABLE ONLY public.researchers
 -- PostgreSQL database dump complete
 --
 
-\unrestrict YwIbxMifGzmh2bNchKudf8UJQ0mb7Y9k6ts1jNmReDBInR4II41f6dmJQV7KBlG
+\unrestrict bZTySMbjAY1dZ99eiuolgBgaFbWM6n1nated6D844dCW9UumRitZc3eDIJT2CLh
 
