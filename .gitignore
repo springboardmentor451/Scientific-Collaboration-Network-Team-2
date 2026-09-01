@@ -1,0 +1,25 @@
+# Node and frontend build output
+node_modules/
+dist/
+dist-ssr/
+
+# Python caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Application secrets and local runtime data
+.env
+.env.*
+!.env.example
+uploads/
+
+# Generated archives and local scratch files
+*.zip
+tmp/
+
+# Logs and IDE files
+*.log
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,9 @@
+# Local-only files must not be copied into the backend image.
+.env
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+tests/
+uploads/
+.git/

@@ -1,0 +1,14 @@
+import api from "./api";
+export const getAdminStatistics=async()=>(await api.get("/admin/statistics")).data;
+export const getAdminUsers=async()=>(await api.get("/admin/users")).data;
+export const setUserStatus=async(id,is_active)=>(await api.put(`/admin/users/${id}/status`,{is_active})).data;
+export const setUserRole=async(id,role)=>(await api.put(`/admin/users/${id}/role`,{role})).data;
+export const setUserApproval=async(id,approval_status)=>(await api.put(`/admin/users/${id}/approval`,{approval_status})).data;
+export const deleteAdminUser=async(id)=>api.delete(`/admin/users/${id}`);
+export const getAdminResearchers=async()=>(await api.get("/admin/researchers")).data;
+export const getAdminPublications=async()=>(await api.get("/admin/publications")).data;
+export const getAdminCollaborations=async()=>(await api.get("/admin/collaborations")).data;
+export const deleteAdminResearcher=async(id)=>api.delete(`/admin/researchers/${id}`);
+export const deleteAdminPublication=async(id)=>api.delete(`/admin/publications/${id}`);
+export const getAuditLogs=async()=>(await api.get("/admin/audit")).data;
+export const getDataQuality=async()=>(await api.get("/admin/data-quality")).data;

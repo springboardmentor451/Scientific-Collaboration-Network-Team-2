@@ -1,0 +1,7 @@
+import { FaBell, FaCheckDouble, FaRegBell, FaTimes } from "react-icons/fa";
+
+const iconByType = { collaboration: "🤝", publication: "📚", researcher: "👤", event: "📅", message: "💬", security: "🛡️", user: "👥", system: "⚙️", backup: "💾" };
+function NotificationPanel({ notifications, unreadCount, onRead, onReadAll, onClear, onViewAll }) {
+  return <div className="notification-menu" role="menu"><div className="notification-menu__header"><div><strong>Notifications</strong><span>{unreadCount ? `${unreadCount} unread` : "You are all caught up"}</span></div>{unreadCount > 0 && <button type="button" className="notification-menu__read-button" onClick={onReadAll}><FaCheckDouble /> Mark all read</button>}</div><div className="notification-menu__list">{!notifications.length && <p className="notification-menu__empty"><FaRegBell /> No notifications.</p>}{notifications.map((item) => <button type="button" className={`notification-menu__item ${item.read ? "" : "notification-menu__item--unread"}`} key={item.id} onClick={() => onRead(item.id)}><span className="notification-menu__indicator" /><span className="notification-menu__content"><i>{iconByType[item.type] || "🔔"}</i><span><strong>{item.title}</strong><p>{item.message}</p><time>{item.time}</time></span></span></button>)}</div><div className="notification-menu__footer"><button type="button" onClick={onClear}><FaTimes /> Clear all</button><button type="button" onClick={onViewAll}><FaBell /> View all notifications</button></div></div>;
+}
+export default NotificationPanel;

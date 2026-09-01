@@ -1,0 +1,50 @@
+services:
+  backend:
+    build: ./Backend
+    env_file: ./Backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Backend/uploads:/app/uploads
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen2.5:0.5b
+    depends_on:
+      ollama:
+        condition: service_started
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./Frontend:/app
+      # Keep Linux dependencies inside Docker. This prevents Windows native
+      # modules from being mounted into the Alpine container.
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_models:/root/.ollama
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_started
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until ollama list >/dev/null 2>&1; do
+          sleep 2
+        done
+        ollama pull qwen2.5:0.5b
+    volumes:
+      - ollama_models:/root/.ollama
+volumes:
+  ollama_models:
+  frontend_node_modules:
