@@ -1,0 +1,1491 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SciCollab - Publications</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f5f7fb;
+            color: #1f2937;
+            min-height: 100vh;
+        }
+
+        /* =====================================================
+           SIDEBAR
+        ===================================================== */
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 271px;
+            height: 100vh;
+            background: #23418f;
+            color: white;
+            z-index: 1000;
+        }
+
+        .logo-section {
+            height: 95px;
+            padding: 25px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.17);
+            border-radius: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .logo-text h2 {
+            font-size: 18px;
+            margin-bottom: 3px;
+        }
+
+        .logo-text p {
+            font-size: 13px;
+            color: #a9c4ff;
+        }
+
+        .navigation-title {
+            padding: 22px 24px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #a8c1ff;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0 15px;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 5px;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            height: 48px;
+            padding: 0 18px;
+            color: #b9caff;
+            text-decoration: none;
+            border-radius: 14px;
+            font-size: 15px;
+        }
+
+        .sidebar-menu a:hover {
+            background: rgba(255,255,255,0.10);
+            color: white;
+        }
+
+        .sidebar-menu a.active {
+            background: rgba(111,151,255,0.45);
+            color: white;
+            border-left: 3px solid #a7d0ff;
+        }
+
+        .menu-icon {
+            width: 20px;
+            text-align: center;
+            font-size: 17px;
+        }
+
+        .tools-title {
+            padding: 22px 24px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #a8c1ff;
+            letter-spacing: 1px;
+        }
+
+        .project-card {
+            margin: 20px 15px;
+            padding: 15px;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 15px;
+            background: rgba(255,255,255,0.06);
+        }
+
+        .project-card small {
+            color: #b6c8ff;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .project-card strong {
+            display: block;
+            margin-top: 7px;
+            font-size: 14px;
+        }
+
+        .sidebar-user {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 74px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #9ec5ff;
+            color: #23418f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-info strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .user-info span {
+            display: block;
+            font-size: 11px;
+            color: #b9caff;
+            margin-top: 3px;
+        }
+
+        .logout-btn {
+            border: none;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+            font-size: 17px;
+        }
+
+        /* =====================================================
+           MAIN
+        ===================================================== */
+
+        .main {
+            margin-left: 271px;
+            min-height: 100vh;
+        }
+
+        /* =====================================================
+           HEADER
+        ===================================================== */
+
+        .top-header {
+            height: 75px;
+            background: white;
+            border-bottom: 1px solid #e5eaf2;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+        }
+
+        .page-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 11px;
+            background: #eef4ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+        }
+
+        .header-title h1 {
+            font-size: 17px;
+            color: #111827;
+        }
+
+        .header-title p {
+            color: #8290ab;
+            font-size: 13px;
+            margin-top: 3px;
+        }
+
+        .breadcrumb {
+            margin-left: 10px;
+            color: #8995ad;
+            font-size: 14px;
+        }
+
+        .breadcrumb span {
+            color: #1457d9;
+            font-weight: bold;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .global-search {
+            width: 290px;
+            height: 41px;
+            border: 1px solid #dce3ee;
+            border-radius: 10px;
+            padding: 0 14px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .global-search:focus {
+            border-color: #3169db;
+        }
+
+        .notification {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #dce3ee;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: white;
+        }
+
+        .notification-dot {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            background: #ff5555;
+            border-radius: 50%;
+            right: 6px;
+            top: 6px;
+        }
+
+        .profile-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #2f65d9;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        /* =====================================================
+           CONTENT
+        ===================================================== */
+
+        .content {
+            padding: 20px 24px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid #e5eaf2;
+            border-radius: 14px;
+            min-height: 88px;
+            display: flex;
+            align-items: center;
+            padding: 17px;
+            gap: 14px;
+        }
+
+        .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+        }
+
+        .stat-icon.blue {
+            background: #eef4ff;
+        }
+
+        .stat-icon.purple {
+            background: #f5ecff;
+        }
+
+        .stat-icon.green {
+            background: #eaf9f0;
+        }
+
+        .stat-icon.orange {
+            background: #fff1e8;
+        }
+
+        .stat-label {
+            color: #8b98b0;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            color: #14233b;
+            font-weight: bold;
+        }
+
+        /* =====================================================
+           FILTERS
+        ===================================================== */
+
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            margin-bottom: 18px;
+        }
+
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+        }
+
+        .search-wrapper span {
+            position: absolute;
+            left: 15px;
+            top: 12px;
+        }
+
+        .publication-search {
+            width: 100%;
+            height: 42px;
+            border: 1px solid #dce3ee;
+            border-radius: 9px;
+            padding: 0 15px 0 39px;
+            outline: none;
+            background: white;
+            font-size: 13px;
+        }
+
+        .filter-select {
+            height: 42px;
+            border: 1px solid #dce3ee;
+            border-radius: 9px;
+            padding: 0 12px;
+            background: white;
+            color: #475467;
+            outline: none;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .field-select {
+            width: 210px;
+        }
+
+        .type-select {
+            width: 145px;
+        }
+
+        .year-select {
+            width: 120px;
+        }
+
+        .status-select {
+            width: 155px;
+        }
+
+        .citation-select {
+            width: 130px;
+        }
+
+        .result-count {
+            color: #8a96ac;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .add-btn {
+            height: 42px;
+            padding: 0 17px;
+            border: none;
+            border-radius: 9px;
+            background: #2f65d9;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .add-btn:hover {
+            background: #2455bc;
+        }
+
+        /* =====================================================
+           TABLE
+        ===================================================== */
+
+        .table-container {
+            background: white;
+            border: 1px solid #e5eaf2;
+            border-radius: 11px;
+            overflow-x: auto;
+            min-height: 400px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1250px;
+        }
+
+        thead {
+            background: #f8faff;
+        }
+
+        th {
+            padding: 16px 19px;
+            text-align: left;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: bold;
+            border-bottom: 1px solid #e5eaf2;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 15px 19px;
+            border-bottom: 1px solid #edf1f6;
+            color: #52617a;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        tbody tr:hover {
+            background: #fbfcff;
+        }
+
+        .title-cell {
+            width: 330px;
+        }
+
+        .publication-title {
+            color: #12233e;
+            font-weight: bold;
+            line-height: 1.35;
+            max-width: 330px;
+        }
+
+        .doi {
+            color: #1463dd;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        .authors {
+            max-width: 210px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .venue {
+            color: #172a46;
+            font-weight: bold;
+        }
+
+        .year {
+            color: #62728c;
+        }
+
+        .citation-number {
+            color: #1458db;
+            font-weight: bold;
+        }
+
+        .type-badge,
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .type-journal {
+            background: #edf4ff;
+            color: #205fce;
+        }
+
+        .type-conference {
+            background: #f5efff;
+            color: #6c2fd4;
+        }
+
+        .type-book {
+            background: #fff2e8;
+            color: #c76118;
+        }
+
+        .type-other {
+            background: #f0f2f5;
+            color: #5e6979;
+        }
+
+        .status-published {
+            background: #eaf9f0;
+            color: #15844c;
+        }
+
+        .status-draft {
+            background: #fff6df;
+            color: #a66c00;
+        }
+
+        .status-under-review {
+            background: #edf3ff;
+            color: #285dc5;
+        }
+
+        .status-rejected {
+            background: #fff0f0;
+            color: #c52f2f;
+        }
+
+        .view-link {
+            border: none;
+            background: transparent;
+            color: #1762df;
+            cursor: pointer;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .view-link:hover {
+            text-decoration: underline;
+        }
+
+        /* =====================================================
+           LOADING / EMPTY / ERROR
+        ===================================================== */
+
+        .loading,
+        .empty {
+            text-align: center;
+            padding: 80px 20px;
+            color: #8290a6;
+        }
+
+        .error-message {
+            display: none;
+            background: #fff0f0;
+            color: #c62828;
+            padding: 13px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            white-space: pre-line;
+        }
+
+        /* =====================================================
+           MODAL
+        ===================================================== */
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.48);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            background: white;
+            border-radius: 12px;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 25px;
+            border-bottom: 1px solid #e5eaf2;
+        }
+
+        .modal-header h2 {
+            color: #23418f;
+            font-size: 21px;
+        }
+
+        .close-btn {
+            border: none;
+            background: transparent;
+            font-size: 25px;
+            color: #667085;
+            cursor: pointer;
+        }
+
+        .form {
+            padding: 24px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 17px 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #475467;
+            margin-bottom: 7px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            border: 1px solid #ccd5e2;
+            border-radius: 7px;
+            padding: 11px;
+            outline: none;
+            font-size: 13px;
+        }
+
+        .form-group input,
+        .form-group select {
+            height: 43px;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: #2f65d9;
+        }
+
+        .modal-error {
+            display: none;
+            margin-top: 15px;
+            background: #fff0f0;
+            color: #c62828;
+            padding: 11px;
+            border-radius: 7px;
+            white-space: pre-line;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 17px 24px;
+            border-top: 1px solid #e5eaf2;
+        }
+
+        .cancel-btn {
+            height: 42px;
+            padding: 0 18px;
+            border: 1px solid #ccd5e2;
+            border-radius: 7px;
+            background: white;
+            color: #475467;
+            cursor: pointer;
+        }
+
+        .submit-btn {
+            height: 42px;
+            padding: 0 20px;
+            border: none;
+            border-radius: 7px;
+            background: #23418f;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .submit-btn:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        /* =====================================================
+           RESPONSIVE
+        ===================================================== */
+
+        @media(max-width:1200px) {
+
+            .sidebar {
+                width: 220px;
+            }
+
+            .main {
+                margin-left: 220px;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2,1fr);
+            }
+
+            .filter-bar {
+                flex-wrap: wrap;
+            }
+
+            .search-wrapper {
+                min-width: 300px;
+            }
+        }
+
+        @media(max-width:800px) {
+
+            .sidebar {
+                width: 70px;
+            }
+
+            .logo-text,
+            .navigation-title,
+            .tools-title,
+            .sidebar-menu span:not(.menu-icon),
+            .project-card,
+            .user-info,
+            .logout-btn {
+                display: none;
+            }
+
+            .logo-section {
+                padding: 20px 13px;
+            }
+
+            .logo {
+                justify-content: center;
+            }
+
+            .sidebar-menu {
+                padding: 0 8px;
+            }
+
+            .sidebar-menu a {
+                justify-content: center;
+                padding: 0;
+            }
+
+            .main {
+                margin-left: 70px;
+            }
+
+            .breadcrumb,
+            .header-title p {
+                display: none;
+            }
+
+            .global-search {
+                width: 180px;
+            }
+        }
+
+        @media(max-width:600px) {
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .content {
+                padding: 15px;
+            }
+
+            .top-header {
+                padding: 0 15px;
+            }
+
+            .header-title h1 {
+                display: none;
+            }
+
+            .global-search {
+                width: 150px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-group.full {
+                grid-column: auto;
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+<aside class="sidebar"></aside>
+
+
+<!-- =========================================================
+     MAIN
+========================================================= -->
+
+<main class="main">
+
+
+    <header class="top-header">
+
+        <div class="header-left">
+
+            <div class="page-icon">
+                📄
+            </div>
+
+            <div class="header-title">
+
+                <h1>
+                    Publications
+                </h1>
+
+                <p>
+                    Explore indexed scientific publications
+                </p>
+
+            </div>
+
+            <div class="breadcrumb">
+
+                SciCollab /
+                <span>
+                    Publications
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="header-right">
+
+            <input
+                id="globalSearch"
+                class="global-search"
+                type="text"
+                placeholder="🔍 Search publications, authors...">
+
+
+            <div class="notification">
+
+                🔔
+
+                <span class="notification-dot"></span>
+
+            </div>
+
+
+            <div
+                class="profile-circle"
+                id="profileCircle">
+
+                IR
+
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <section class="content">
+
+
+        <div
+            id="errorMessage"
+            class="error-message">
+        </div>
+
+
+        <!-- =================================================
+             STATISTICS
+        ================================================= -->
+
+        <div class="stats">
+
+
+            <div class="stat-card">
+
+                <div class="stat-icon blue">
+                    📄
+                </div>
+
+                <div>
+
+                    <div class="stat-label">
+                        Total Publications
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="totalPublications">
+                        0
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-icon purple">
+                    ▤
+                </div>
+
+                <div>
+
+                    <div class="stat-label">
+                        Journal Articles
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="journalArticles">
+                        0
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-icon green">
+                    🎓
+                </div>
+
+                <div>
+
+                    <div class="stat-label">
+                        Conference Papers
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="conferencePapers">
+                        0
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-icon orange">
+                    🔖
+                </div>
+
+                <div>
+
+                    <div class="stat-label">
+                        Total Citations
+                    </div>
+
+                    <div
+                        class="stat-value"
+                        id="totalCitations">
+                        0
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             FILTER BAR
+        ================================================= -->
+
+        <div class="filter-bar">
+
+
+            <div class="search-wrapper">
+
+                <span>🔍</span>
+
+                <input
+                    id="publicationSearch"
+                    class="publication-search"
+                    type="text"
+                    placeholder="Search publications, authors, venues">
+
+            </div>
+
+
+            <select
+                id="fieldFilter"
+                class="filter-select field-select">
+
+                <option value="all">
+                    All Fields
+                </option>
+
+                <option value="title">
+                    Title
+                </option>
+
+                <option value="author">
+                    Authors
+                </option>
+
+                <option value="venue">
+                    Venue
+                </option>
+
+                <option value="field">
+                    Field
+                </option>
+
+            </select>
+
+
+            <select
+                id="typeFilter"
+                class="filter-select type-select">
+
+                <option value="all">
+                    All Types
+                </option>
+
+            </select>
+
+
+            <select
+                id="yearFilter"
+                class="filter-select year-select">
+
+                <option value="all">
+                    All Years
+                </option>
+
+            </select>
+
+
+            <select
+                id="statusFilter"
+                class="filter-select status-select">
+
+                <option value="all">
+                    All Status
+                </option>
+
+            </select>
+
+
+            <select
+                id="citationSort"
+                class="filter-select citation-select">
+
+                <option value="citations_desc">
+                    Citations ↓
+                </option>
+
+                <option value="citations_asc">
+                    Citations ↑
+                </option>
+
+                <option value="year_desc">
+                    Year ↓
+                </option>
+
+                <option value="year_asc">
+                    Year ↑
+                </option>
+
+                <option value="title_asc">
+                    Title A-Z
+                </option>
+
+                <option value="title_desc">
+                    Title Z-A
+                </option>
+
+            </select>
+
+
+            <span
+                id="resultCount"
+                class="result-count">
+                0 results
+            </span>
+
+
+            <button
+                class="add-btn"
+                onclick="openAddPublicationModal()">
+
+                + Add Publication
+
+            </button>
+
+        </div>
+
+
+        <!-- =================================================
+             TABLE
+        ================================================= -->
+
+        <div class="table-container">
+
+
+            <div
+                id="loading"
+                class="loading">
+
+                Loading publications...
+
+            </div>
+
+
+            <table
+                id="publicationTable"
+                style="display:none;">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Title</th>
+                        <th>Authors</th>
+                        <th>Venue</th>
+                        <th>Year</th>
+                        <th>Field</th>
+                        <th>Type</th>
+                        <th>Citations</th>
+                        <th>Status</th>
+                        <th>Action</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody
+                    id="publicationTableBody">
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- =========================================================
+     ADD PUBLICATION MODAL
+========================================================= -->
+
+<div
+    id="publicationModal"
+    class="modal-overlay">
+
+
+    <div class="modal">
+
+
+        <div class="modal-header">
+
+            <h2>
+                Add Publication
+            </h2>
+
+            <button
+                class="close-btn"
+                onclick="closeAddPublicationModal()">
+                ×
+            </button>
+
+        </div>
+
+
+        <form
+            id="publicationForm"
+            class="form"
+            onsubmit="submitPublication(event)">
+
+
+            <div class="form-grid">
+
+
+                <div class="form-group full">
+
+                    <label>
+                        Title *
+                    </label>
+
+                    <input
+                        id="publicationTitle"
+                        required
+                        placeholder="Enter publication title">
+
+                </div>
+
+
+                <div class="form-group full">
+
+                    <label>
+                        Abstract
+                    </label>
+
+                    <textarea
+                        id="publicationAbstract"
+                        placeholder="Enter publication abstract"></textarea>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Publication Type
+                    </label>
+
+                    <select id="publicationType">
+
+                        <option value="Journal">
+                            Journal
+                        </option>
+
+                        <option value="Conference">
+                            Conference
+                        </option>
+
+                        <option value="Book">
+                            Book
+                        </option>
+
+                        <option value="Other">
+                            Other
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Journal / Venue
+                    </label>
+
+                    <input
+                        id="journalName"
+                        placeholder="Journal or conference name">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        DOI
+                    </label>
+
+                    <input
+                        id="doi"
+                        placeholder="10.xxxx/xxxxx">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Publication Date
+                    </label>
+
+                    <input
+                        id="publicationDate"
+                        type="date">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Volume
+                    </label>
+
+                    <input
+                        id="volume"
+                        placeholder="Volume">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Issue
+                    </label>
+
+                    <input
+                        id="issue"
+                        placeholder="Issue">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Pages
+                    </label>
+
+                    <input
+                        id="pages"
+                        placeholder="Pages">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        URL
+                    </label>
+
+                    <input
+                        id="publicationUrl"
+                        type="url"
+                        placeholder="https://...">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Citation Count
+                    </label>
+
+                    <input
+                        id="citationCount"
+                        type="number"
+                        min="0"
+                        value="0">
+
+                </div>
+
+            </div>
+
+
+            <div
+                id="modalError"
+                class="modal-error">
+            </div>
+
+        </form>
+
+
+        <div class="modal-footer">
+
+            <button
+                class="cancel-btn"
+                onclick="closeAddPublicationModal()"
+                type="button">
+
+                Cancel
+
+            </button>
+
+
+            <button
+                id="submitPublicationBtn"
+                class="submit-btn"
+                form="publicationForm"
+                type="submit">
+
+                Add Publication
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="js/common.js?v=20260903-2"></script>
+<script src="js/publication.js?v=20260903-2"></script>
+
+
+</body>
+
+</html>
+

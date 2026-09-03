@@ -5,6 +5,7 @@ from backend.app.database.base import Base
 
 
 class Researcher(Base):
+
     __tablename__ = "researchers"
 
     id = Column(
@@ -39,6 +40,12 @@ class Researcher(Base):
     profile_url = Column(
         String(500),
         nullable=True
+    )
+
+    status = Column(
+        String(50),
+        nullable=False,
+        default="Active"
     )
 
     created_at = Column(

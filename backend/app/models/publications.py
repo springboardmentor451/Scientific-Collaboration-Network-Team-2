@@ -5,9 +5,14 @@ from backend.app.database.base import Base
 
 
 class Publication(Base):
+
     __tablename__ = "publications"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     title = Column(
         String(500),
@@ -63,6 +68,12 @@ class Publication(Base):
     pdf_file = Column(
         String(500),
         nullable=True
+    )
+
+    citation_count = Column(
+        Integer,
+        nullable=False,
+        default=0
     )
 
     created_at = Column(

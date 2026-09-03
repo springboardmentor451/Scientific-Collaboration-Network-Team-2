@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SciCollab - Conferences</title>
+    <link rel="stylesheet" href="panel.css">
+    <link rel="stylesheet" href="sidebar.css">
+</head>
+<body>
+    <aside class="sidebar"></aside>
+    <main class="main">
+        <header class="header"><div><p class="eyebrow">SciCollab / Conferences</p><h1>Conferences</h1><p class="muted">Discover and track academic conferences</p></div><div class="header-actions"><input id="globalSearch" class="header-search" placeholder="Search conferences, locations..."><span id="headerAvatar" class="avatar">US</span></div></header>
+        <section class="content">
+            <div id="errorMessage" class="error-message"></div>
+            <div class="stat-grid">
+                <article class="stat-card"><span class="stat-icon">C</span><div><p>Total Conferences</p><strong id="totalConferences">0</strong></div></article>
+                <article class="stat-card"><span class="stat-icon blue">U</span><div><p>Upcoming</p><strong id="upcoming">0</strong></div></article>
+                <article class="stat-card"><span class="stat-icon gold">A</span><div><p>Completed</p><strong id="completed">0</strong></div></article>
+                <article class="stat-card"><span class="stat-icon green">P</span><div><p>Total Participants</p><strong id="totalParticipants">0</strong></div></article>
+            </div>
+            <div class="toolbar"><input id="search" class="search" placeholder="Search conferences, locations..."><select id="field"><option value="all">All Fields</option></select><select id="status"><option value="all">All Status</option><option value="Upcoming">Upcoming</option><option value="Completed">Completed</option></select><select id="sort"><option value="date_desc">Newest date</option><option value="date_asc">Oldest date</option><option value="name_asc">Name A-Z</option><option value="name_desc">Name Z-A</option></select><span id="resultCount" class="result-count">0 results</span><button id="addConference" class="primary">+ Add Conference</button></div>
+            <div id="conferenceGrid" class="conference-grid"><div class="loading">Loading conferences...</div></div>
+        </section>
+    </main>
+    <dialog id="conferenceDialog"><form id="conferenceForm"><div class="dialog-head"><h2>Add Conference</h2><button type="button" class="close" data-close>×</button></div><div class="form-grid"><label>Name<input name="name" required maxlength="255"></label><label>Field<input name="field" maxlength="150"></label><label>Location<input name="location" maxlength="255"></label><label>Organizer<input name="organizer" maxlength="255"></label><label>Start date<input name="start_date" type="date"></label><label>End date<input name="end_date" type="date"></label><label class="wide">Website<input name="website" type="url"></label><label class="wide">Description<textarea name="description" rows="3"></textarea></label></div><p id="formError" class="form-error"></p><button class="primary" type="submit">Save conference</button></form></dialog>
+    <script src="js/common.js?v=20260903-4"></script><script src="js/conference.js?v=20260903-4"></script>
+</body>
+</html>

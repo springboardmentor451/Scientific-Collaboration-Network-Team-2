@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS captcha_challenges (
+    id SERIAL PRIMARY KEY,
+    challenge_id VARCHAR(64) NOT NULL UNIQUE,
+    answer_hash VARCHAR(64) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    verified BOOLEAN NOT NULL DEFAULT FALSE,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+ALTER TABLE captcha_challenges
+    ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE captcha_challenges
+    ALTER COLUMN expires_at DROP NOT NULL;
+
+DROP TABLE IF EXISTS otp_verifications;

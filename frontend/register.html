@@ -49,17 +49,51 @@
             font-weight: bold;
         }
 
+        .field-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .field-row .email-field {
+            flex: 1;
+        }
+
+        .password-wrap {
+            position: relative;
+            margin-bottom: 18px;
+        }
+
+        .password-wrap input {
+            width: 100%;
+            padding-right: 42px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            color: #1f3c88;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 5px;
+        }
+
         input,
         select {
             width: 100%;
             padding: 12px;
-            margin-bottom: 18px;
             border: 1px solid #ccc;
             border-radius: 6px;
             font-size: 15px;
         }
 
-        button {
+        .refresh-captcha-btn,
+        .primary-btn {
             width: 100%;
             padding: 12px;
             border: none;
@@ -70,14 +104,113 @@
             cursor: pointer;
         }
 
-        button:hover {
+        .verify-captcha-btn {
+            width: auto;
+            min-width: 110px;
+            white-space: nowrap;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .verify-captcha-btn:hover,
+        .primary-btn:hover {
             background: #162d69;
+        }
+
+        .verify-captcha-btn:disabled {
+            background: #9aa9d1;
+            cursor: not-allowed;
+        }
+
+        .primary-btn:disabled {
+            background: #9aa9d1;
+            cursor: not-allowed;
+        }
+
+        .captcha-box {
+            margin-top: 15px;
+            margin-bottom: 18px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9fafb;
+        }
+
+        .captcha-box {
+            border: 2px solid #1f7a4d;
+            background: #f0fdf4;
+        }
+
+        .captcha-box label {
+            color: #1f3c88;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .captcha-question {
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            color: #1f3c88;
+        }
+
+        .captcha-row {
+            display: block;
+        }
+
+        .captcha-row input {
+            width: 100%;
+            font-size: 16px;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .captcha-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .new-captcha-link {
+            display: block;
+            margin-top: 10px;
+            text-align: center;
+            color: #1f3c88;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .captcha-status {
+            font-size: 13px;
+            margin-top: 10px;
+            font-weight: bold;
+            color: #1f3c88;
+        }
+
+        .captcha-timer {
+            font-size: 12px;
+            margin-top: 6px;
+            color: #666;
         }
 
         #message {
             margin-top: 15px;
             text-align: center;
             font-size: 14px;
+            font-weight: 500;
+            padding: 10px;
+            border-radius: 6px;
+            min-height: 20px;
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: -10px;
+            margin-bottom: 12px;
         }
 
         .login-link {
@@ -121,24 +254,76 @@
                 Email
             </label>
 
-            <input
-                type="email"
-                id="email"
-                placeholder="Enter your email"
-                required
-            >
+            <div class="field-row">
+                <div class="email-field">
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="Enter your email"
+                        required
+                    >
+                </div>
+
+            </div>
+
+            <div class="captcha-box" id="captchaBox">
+                <label for="captchaInput">Human verification</label>
+                <div class="captcha-question" id="captchaQuestion">Loading CAPTCHA...</div>
+                <div class="captcha-row">
+                    <input
+                        type="text"
+                        id="captchaInput"
+                        placeholder="Enter your answer"
+                        inputmode="numeric"
+                        required
+                    >
+                </div>
+                <div class="captcha-actions">
+                    <button type="button" class="verify-captcha-btn" id="verifyCaptchaBtn">
+                        Verify CAPTCHA
+                    </button>
+                </div>
+                <a href="#" class="new-captcha-link" id="newCaptchaLink">Get a new CAPTCHA</a>
+                <div class="captcha-status" id="captchaStatus"></div>
+                <div class="captcha-timer" id="captchaTimer"></div>
+            </div>
 
 
             <label for="password">
                 Password
             </label>
 
-            <input
-                type="password"
-                id="password"
-                placeholder="Enter your password"
-                required
-            >
+            <div class="password-wrap">
+                <input
+                    type="password"
+                    id="password"
+                    placeholder="Enter your password"
+                    required
+                >
+                <button type="button" class="toggle-password" data-target="password">
+                    Show
+                </button>
+            </div>
+
+            <div class="helper-text" id="passwordStrengthText"></div>
+
+            <label for="confirm_password">
+                Confirm Password
+            </label>
+
+            <div class="password-wrap">
+                <input
+                    type="password"
+                    id="confirm_password"
+                    placeholder="Re-enter your password"
+                    required
+                >
+                <button type="button" class="toggle-password" data-target="confirm_password">
+                    Show
+                </button>
+            </div>
+
+            <div class="helper-text" id="passwordMatchText"></div>
 
 
             <label for="role">
@@ -162,18 +347,11 @@
                 <option value="admin">
                     Admin
                 </option>
-                 <option value="admin">
-                   publisher
-                </option>
-
-                <option value="admin">
-                   ...
-                </option>
 
             </select>
 
 
-            <button type="submit">
+            <button type="submit" class="primary-btn" id="registerBtn" disabled>
                 Register
             </button>
 
@@ -196,12 +374,235 @@
 
     <script>
 
-        const registerForm =
-            document.getElementById("registerForm");
+        const registerForm = document.getElementById("registerForm");
+        const message = document.getElementById("message");
+        const registerBtn = document.getElementById("registerBtn");
+        const passwordInput = document.getElementById("password");
+        const confirmPasswordInput = document.getElementById("confirm_password");
+        const passwordMatchText = document.getElementById("passwordMatchText");
+        const passwordStrengthText = document.getElementById("passwordStrengthText");
+        const captchaQuestion = document.getElementById("captchaQuestion");
+        const captchaInput = document.getElementById("captchaInput");
+        const captchaStatus = document.getElementById("captchaStatus");
+        const captchaTimer = document.getElementById("captchaTimer");
+        const emailInput = document.getElementById("email");
 
-        const message =
-            document.getElementById("message");
+        let captchaId = "";
+        let captchaVerified = false;
+        let captchaStarted = false;
+        let captchaExpiresAt = 0;
+        let captchaTimerId = null;
 
+        function updateRegisterButtonState() {
+            const fieldsFilled =
+                document.getElementById("full_name").value.trim() &&
+                emailInput.value.trim() &&
+                passwordInput.value &&
+                confirmPasswordInput.value &&
+                document.getElementById("role").value;
+
+            registerBtn.disabled = !(fieldsFilled && captchaVerified && captchaExpiresAt > Date.now() && passwordInput.value === confirmPasswordInput.value);
+        }
+
+        function validatePasswordStrength() {
+            const value = passwordInput.value;
+
+            if (!value) {
+                passwordStrengthText.textContent = "";
+                return;
+            }
+
+            if (value.length < 8) {
+                passwordStrengthText.textContent = "Password must be at least 8 characters long.";
+                passwordStrengthText.style.color = "#b42318";
+                return;
+            }
+
+            const strong = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+            passwordStrengthText.textContent = strong.test(value)
+                ? "Strong password"
+                : "Use uppercase, lowercase, and a number.";
+            passwordStrengthText.style.color = strong.test(value) ? "#1f7a4d" : "#b7791f";
+        }
+
+        function validatePasswordMatch() {
+            const password = passwordInput.value;
+            const confirm = confirmPasswordInput.value;
+
+            if (!confirm) {
+                passwordMatchText.textContent = "";
+                return;
+            }
+
+            if (password === confirm) {
+                passwordMatchText.textContent = "Passwords match.";
+                passwordMatchText.style.color = "#1f7a4d";
+            } else {
+                passwordMatchText.textContent = "Passwords do not match.";
+                passwordMatchText.style.color = "#b42318";
+            }
+        }
+
+        document.querySelectorAll(".toggle-password").forEach(function(button) {
+            button.addEventListener("click", function() {
+                const targetId = button.getAttribute("data-target");
+                const input = document.getElementById(targetId);
+                const isPassword = input.type === "password";
+                input.type = isPassword ? "text" : "password";
+                button.textContent = isPassword ? "Hide" : "Show";
+            });
+        });
+
+        [passwordInput, confirmPasswordInput, document.getElementById("full_name"), emailInput, document.getElementById("role")].forEach(function(element) {
+            element.addEventListener("input", function() {
+                validatePasswordStrength();
+                validatePasswordMatch();
+                updateRegisterButtonState();
+            });
+        });
+
+        async function loadCaptcha() {
+            if (captchaTimerId) {
+                clearInterval(captchaTimerId);
+            }
+            captchaQuestion.textContent = "Loading CAPTCHA...";
+            captchaInput.value = "";
+            captchaStatus.textContent = "";
+            captchaTimer.textContent = "";
+            captchaId = "";
+            captchaVerified = false;
+            captchaExpiresAt = 0;
+            captchaStarted = false;
+            updateRegisterButtonState();
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/auth/captcha");
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || "Unable to load CAPTCHA.");
+                }
+
+                captchaId = data.challenge_id;
+                captchaQuestion.textContent = data.question;
+                captchaStatus.style.color = "#1f3c88";
+                captchaStatus.textContent = "Click the answer field to start the timer.";
+                updateRegisterButtonState();
+            } catch (error) {
+                captchaQuestion.textContent = "CAPTCHA unavailable";
+                captchaStatus.textContent = "❌ " + error.message;
+                captchaStatus.style.color = "#b42318";
+            }
+        }
+
+        async function startCaptchaTimer() {
+            if (captchaStarted || !captchaId) {
+                return;
+            }
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/auth/captcha/start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ challenge_id: captchaId })
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || "Unable to start CAPTCHA.");
+                }
+
+                captchaStarted = true;
+                captchaExpiresAt = Date.now() + (data.expires_in * 1000);
+                updateCaptchaTimer();
+                captchaTimerId = setInterval(updateCaptchaTimer, 250);
+            } catch (error) {
+                captchaStatus.textContent = "❌ " + error.message;
+                captchaStatus.style.color = "#b42318";
+            }
+        }
+
+        function updateCaptchaTimer() {
+            const secondsLeft = Math.max(0, Math.ceil((captchaExpiresAt - Date.now()) / 1000));
+
+            if (!captchaExpiresAt) {
+                captchaTimer.textContent = "";
+                return;
+            }
+
+            if (secondsLeft === 0) {
+                clearInterval(captchaTimerId);
+                captchaTimer.textContent = "CAPTCHA expired. Click New CAPTCHA to continue.";
+                captchaTimer.style.color = "#b42318";
+                captchaStatus.textContent = "";
+                captchaId = "";
+                captchaVerified = false;
+                updateRegisterButtonState();
+                return;
+            }
+
+            captchaTimer.textContent = "Time remaining: " + secondsLeft + " seconds";
+            captchaTimer.style.color = secondsLeft <= 5 ? "#b42318" : "#666";
+            updateRegisterButtonState();
+        }
+
+        document.getElementById("verifyCaptchaBtn").addEventListener("click", async function() {
+            const verifyButton = document.getElementById("verifyCaptchaBtn");
+            const answer = captchaInput.value.trim();
+
+            if (!captchaStarted || !captchaId || captchaExpiresAt <= Date.now()) {
+                captchaStatus.textContent = "Please get a new CAPTCHA first.";
+                captchaStatus.style.color = "#b42318";
+                return;
+            }
+
+            if (!answer) {
+                captchaStatus.textContent = "Enter the CAPTCHA before verifying.";
+                captchaStatus.style.color = "#b42318";
+                return;
+            }
+
+            verifyButton.disabled = true;
+            captchaStatus.textContent = "Verifying CAPTCHA...";
+            captchaStatus.style.color = "#1f3c88";
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/auth/captcha/verify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ challenge_id: captchaId, answer: answer })
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || "CAPTCHA verification failed.");
+                }
+
+                captchaVerified = true;
+                clearInterval(captchaTimerId);
+                captchaExpiresAt = Number.POSITIVE_INFINITY;
+                captchaStatus.textContent = "CAPTCHA verified. You can register now.";
+                captchaStatus.style.color = "#1f7a4d";
+                captchaTimer.textContent = "CAPTCHA verified. Timer stopped.";
+                captchaTimer.style.color = "#1f7a4d";
+                updateRegisterButtonState();
+            } catch (error) {
+                captchaVerified = false;
+                captchaStatus.textContent = "❌ " + error.message;
+                captchaStatus.style.color = "#b42318";
+                updateRegisterButtonState();
+            } finally {
+                verifyButton.disabled = captchaVerified;
+            }
+        });
+
+        document.getElementById("newCaptchaLink").addEventListener("click", function(event) {
+            event.preventDefault();
+            loadCaptcha();
+        });
+        captchaInput.addEventListener("focus", startCaptchaTimer);
+        captchaInput.addEventListener("input", updateRegisterButtonState);
+        loadCaptcha();
 
         registerForm.addEventListener(
             "submit",
@@ -209,24 +610,32 @@
 
                 event.preventDefault();
 
-                const full_name =
-                    document.getElementById("full_name").value;
+                if (!captchaVerified || !captchaId || captchaExpiresAt <= Date.now()) {
+                    message.textContent = "❌ Please verify the CAPTCHA before registering.";
+                    message.style.color = "#b42318";
+                    message.style.backgroundColor = "#ffe6e6";
+                    return;
+                }
 
-                const email =
-                    document.getElementById("email").value;
+                if (passwordInput.value !== confirmPasswordInput.value) {
+                    message.textContent = "❌ Passwords do not match.";
+                    message.style.color = "#b42318";
+                    message.style.backgroundColor = "#ffe6e6";
+                    return;
+                }
 
-                const password =
-                    document.getElementById("password").value;
+                const full_name = document.getElementById("full_name").value;
+                const email = emailInput.value;
+                const password = passwordInput.value;
+                const role = document.getElementById("role").value;
 
-                const role =
-                    document.getElementById("role").value;
-
-
-                message.textContent =
-                    "Creating account...";
-
+                message.textContent = "⏳ Creating your account...";
+                message.style.color = "#1f3c88";
+                message.style.backgroundColor = "#f0f0f0";
+                registerBtn.disabled = true;
 
                 try {
+                    console.log("Registering user:", email);
 
                     const response = await fetch(
                         "http://127.0.0.1:8000/auth/register",
@@ -234,80 +643,58 @@
                             method: "POST",
 
                             headers: {
-                                "Content-Type":
-                                    "application/json"
+                                "Content-Type": "application/json"
                             },
 
                             body: JSON.stringify({
                                 full_name: full_name,
                                 email: email,
                                 password: password,
-                                role: role
+                                role: role,
+                                captcha_id: captchaId,
+                                captcha_answer: captchaInput.value.trim()
                             })
                         }
                     );
 
-
-                    const data =
-                        await response.json();
-
-
-                    console.log(
-                        "Status:",
-                        response.status
-                    );
-
-                    console.log(
-                        "Response:",
-                        data
-                    );
-
+                    const data = await response.json();
 
                     if (!response.ok) {
 
                         if (Array.isArray(data.detail)) {
-
-                            message.textContent =
-                                data.detail
-                                    .map(error => error.msg)
-                                    .join(", ");
-
+                            message.textContent = "❌ " + data.detail.map(error => error.msg).join(", ");
                         } else {
-
-                            message.textContent =
-                                data.detail ||
-                                "Registration failed.";
+                            message.textContent = "❌ " + (data.detail || "Registration failed.");
                         }
 
+                        message.style.color = "#b42318";
+                        message.style.backgroundColor = "#ffe6e6";
+                        registerBtn.disabled = false;
                         return;
                     }
 
-
-                    message.textContent =
-                        "Registration successful! Redirecting to login...";
-
+                    message.textContent = "✅ Registration successful! Redirecting to login...";
+                    message.style.color = "#1f7a4d";
+                    message.style.backgroundColor = "#e6ffe6";
 
                     setTimeout(function() {
-
-                        window.location.href =
-                            "login.html";
-
+                        window.location.href = "login.html";
                     }, 1500);
 
 
                 } catch (error) {
 
-                    console.error(
-                        "Registration error:",
-                        error
-                    );
-
-                    message.textContent =
-                        "Unable to connect to the backend.";
+                    console.error("Registration error:", error);
+                    message.textContent = "❌ Unable to connect to the backend: " + error.message;
+                    message.style.color = "#b42318";
+                    message.style.backgroundColor = "#ffe6e6";
+                    registerBtn.disabled = false;
                 }
 
             }
         );
+
+        updateRegisterButtonState();
 
     </script>
 

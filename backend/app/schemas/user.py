@@ -6,6 +6,23 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     role: str
+    captcha_id: str
+    captcha_answer: str
+
+
+class CaptchaResponse(BaseModel):
+    challenge_id: str
+    question: str
+    expires_in: int
+
+
+class CaptchaVerifyRequest(BaseModel):
+    challenge_id: str
+    answer: str
+
+
+class CaptchaStartRequest(BaseModel):
+    challenge_id: str
 
 
 class UserLogin(BaseModel):

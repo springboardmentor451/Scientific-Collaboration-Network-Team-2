@@ -25,78 +25,167 @@
             position: fixed;
             left: 0;
             top: 0;
-            width: 260px;
+            width: 271px;
             height: 100vh;
-            background: #243e96;
+            background: #23418f;
             color: white;
-            padding-bottom: 20px;
-            overflow-y: auto;
+            z-index: 1000;
         }
 
-        .brand {
-            height: 145px;
-            padding: 25px 20px;
+        .logo-section {
+            height: 95px;
+            padding: 25px 24px;
             border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .logo {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 14px;
         }
 
-        .brand-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            background: rgba(255,255,255,0.18);
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.17);
+            border-radius: 13px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 23px;
+            font-size: 22px;
         }
 
-        .brand h2 {
-            font-size: 20px;
-            margin-bottom: 4px;
+        .logo-text h2 {
+            font-size: 18px;
+            margin-bottom: 3px;
         }
 
-        .brand p {
+        .logo-text p {
             font-size: 13px;
-            color: #b9c9ff;
+            color: #a9c4ff;
         }
 
-        .nav-title {
-            padding: 22px 20px 10px;
+        .navigation-title {
+            padding: 22px 24px 10px;
             font-size: 12px;
             font-weight: bold;
+            color: #a8c1ff;
             letter-spacing: 1px;
-            color: #b9c9ff;
         }
 
-        .nav-item {
-            margin: 5px 12px;
-            padding: 13px 16px;
-            border-radius: 10px;
+        .sidebar-menu {
+            list-style: none;
+            padding: 0 15px;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 5px;
+        }
+
+        .sidebar-menu a {
             display: flex;
             align-items: center;
             gap: 14px;
-            color: #d8e1ff;
-            cursor: pointer;
+            height: 48px;
+            padding: 0 18px;
+            color: #b9caff;
+            text-decoration: none;
+            border-radius: 14px;
             font-size: 15px;
         }
 
-        .nav-item:hover {
-            background: rgba(255,255,255,0.12);
+        .sidebar-menu a:hover {
+            background: rgba(255,255,255,0.10);
+            color: white;
         }
 
-        .nav-item.active {
-            background: rgba(255,255,255,0.20);
-            border-left: 3px solid #8fc7ff;
+        .sidebar-menu a.active {
+            background: rgba(111,151,255,0.45);
             color: white;
+            border-left: 3px solid #a7d0ff;
+        }
+
+        .menu-icon {
+            width: 20px;
+            text-align: center;
+            font-size: 17px;
+        }
+
+        .tools-title {
+            padding: 22px 24px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #a8c1ff;
+            letter-spacing: 1px;
+        }
+
+        .project-card {
+            margin: 20px 15px;
+            padding: 15px;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 15px;
+            background: rgba(255,255,255,0.06);
+        }
+
+        .project-card small {
+            color: #b6c8ff;
+            font-size: 11px;
             font-weight: bold;
         }
 
-        .nav-icon {
-            width: 20px;
-            text-align: center;
+        .project-card strong {
+            display: block;
+            margin-top: 7px;
+            font-size: 14px;
+        }
+
+        .sidebar-user {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 74px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #9ec5ff;
+            color: #23418f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-info strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .user-info span {
+            display: block;
+            font-size: 11px;
+            color: #b9caff;
+            margin-top: 3px;
+        }
+
+        .logout-btn {
+            border: none;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+            font-size: 17px;
         }
 
         .project-box {
@@ -164,7 +253,7 @@
         /* ================= MAIN ================= */
 
         .main {
-            margin-left: 260px;
+            margin-left: 271px;
             min-height: 100vh;
         }
 
@@ -698,109 +787,8 @@
 
     <!-- ================= SIDEBAR ================= -->
 
-    <aside class="sidebar">
+    <aside class="sidebar"></aside>
 
-        <div class="brand">
-
-            <div class="brand-icon">⬡</div>
-
-            <div>
-                <h2>SciCollab</h2>
-                <p>Network Analyzer</p>
-            </div>
-
-        </div>
-
-
-        <div class="nav-title">
-            NAVIGATION
-        </div>
-
-        <div class="nav-item active">
-            <span class="nav-icon">⬡</span>
-            Dashboard
-        </div>
-
-
-<div class="nav-item" onclick="openResearchers()">
-    <span class="nav-icon">♟</span>
-    Researchers
-</div>
-
-        <div class="nav-item">
-            <span class="nav-icon">▤</span>
-            Publications
-        </div>
-
-        <div class="nav-item">
-            <span class="nav-icon">🎓</span>
-            Conferences
-        </div>
-
-        <div class="nav-item">
-            <span class="nav-icon">🔗</span>
-            Collaborations
-        </div>
-
-
-        <div class="nav-title">
-            TOOLS
-        </div>
-
-        <div class="nav-item">
-            <span class="nav-icon">▥</span>
-            Analytics
-        </div>
-
-        <div class="nav-item">
-            <span class="nav-icon">↓</span>
-            Export Data
-        </div>
-
-        <div class="nav-item">
-            <span class="nav-icon">⚙</span>
-            Settings
-        </div>
-
-
-        <div class="project-box">
-
-            <small>INTERNSHIP PROJECT</small>
-
-            <strong>Infosys 2024</strong>
-
-        </div>
-
-
-        <div class="profile-box">
-
-            <div class="avatar" id="sidebarAvatar">
-                --
-            </div>
-
-            <div>
-
-                <div class="profile-name" id="sidebarName">
-                    Loading...
-                </div>
-
-                <div class="profile-role" id="sidebarRole">
-                    Loading...
-                </div>
-
-            </div>
-
-            <button
-                class="logout-small"
-                onclick="logout()"
-                title="Logout"
-            >
-                ⋯
-            </button>
-
-        </div>
-
-    </aside>
 
 
     <!-- ================= MAIN ================= -->
@@ -864,93 +852,7 @@
 
             <!-- STATISTICS -->
 
-            <div class="stats">
-
-                <div class="stat-card">
-
-                    <div class="stat-icon">👥</div>
-
-                    <h3>Total Researchers</h3>
-
-                    <div class="stat-number">2,847</div>
-
-                    <div class="increase">
-                        ↑ +128 this month
-                    </div>
-
-                    <div class="mini-line"></div>
-
-                </div>
-
-
-                <div class="stat-card">
-
-                    <div class="stat-icon">🏢</div>
-
-                    <h3>Institutions</h3>
-
-                    <div class="stat-number">394</div>
-
-                    <div class="increase">
-                        ↑ +12 this month
-                    </div>
-
-                    <div class="mini-line"></div>
-
-                </div>
-
-
-                <div class="stat-card">
-
-                    <div class="stat-icon">📄</div>
-
-                    <h3>Publications</h3>
-
-                    <div class="stat-number">18,492</div>
-
-                    <div class="increase">
-                        ↑ +341 this month
-                    </div>
-
-                    <div class="mini-line"></div>
-
-                </div>
-
-
-                <div class="stat-card">
-
-                    <div class="stat-icon">🎓</div>
-
-                    <h3>Conferences</h3>
-
-                    <div class="stat-number">128</div>
-
-                    <div class="increase">
-                        ↑ +8 this month
-                    </div>
-
-                    <div class="mini-line"></div>
-
-                </div>
-
-
-                <div class="stat-card">
-
-                    <div class="stat-icon">🔗</div>
-
-                    <h3>Collaborations</h3>
-
-                    <div class="stat-number">9,156</div>
-
-                    <div class="increase">
-                        ↑ +215 this month
-                    </div>
-
-                    <div class="mini-line"></div>
-
-                </div>
-
-            </div>
+            <div class="stats" id="statsContainer"></div>
 
 
             <!-- TOP GRID -->
@@ -969,51 +871,14 @@
                             <p>New collaborations this week</p>
                         </div>
 
-                        <span class="badge">
-                            415 total
+                        <span class="badge" id="weeklyTotalBadge">
+                            0 total
                         </span>
 
                     </div>
 
 
-                    <div class="bar-chart">
-
-                        <div class="bar-wrapper">
-                            <div class="bar" style="height: 55%;"></div>
-                            <div class="day">Mon</div>
-                        </div>
-
-                        <div class="bar-wrapper">
-                            <div class="bar" style="height: 72%;"></div>
-                            <div class="day">Tue</div>
-                        </div>
-
-                        <div class="bar-wrapper">
-                            <div class="bar" style="height: 64%;"></div>
-                            <div class="day">Wed</div>
-                        </div>
-
-                        <div class="bar-wrapper">
-                            <div class="bar" style="height: 82%;"></div>
-                            <div class="day">Thu</div>
-                        </div>
-
-                        <div class="bar-wrapper">
-                            <div class="bar friday" style="height: 88%;"></div>
-                            <div class="day">Fri</div>
-                        </div>
-
-                        <div class="bar-wrapper">
-                            <div class="bar" style="height: 45%;"></div>
-                            <div class="day">Sat</div>
-                        </div>
-
-                        <div class="bar-wrapper">
-                            <div class="bar" style="height: 38%;"></div>
-                            <div class="day">Sun</div>
-                        </div>
-
-                    </div>
+                    <div class="bar-chart" id="weeklyActivityChart"></div>
 
                 </div>
 
@@ -1029,75 +894,7 @@
                         </div>
                     </div>
 
-
-                    <div class="field">
-
-                        <div class="field-title">
-                            <span>Machine Learning</span>
-                            <span style="color:#4285df;">38%</span>
-                        </div>
-
-                        <div class="progress">
-                            <div class="blue" style="width:38%;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="field">
-
-                        <div class="field-title">
-                            <span>Quantum Computing</span>
-                            <span style="color:#a33dd4;">22%</span>
-                        </div>
-
-                        <div class="progress">
-                            <div class="purple" style="width:22%;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="field">
-
-                        <div class="field-title">
-                            <span>Climate Science</span>
-                            <span style="color:#37c878;">17%</span>
-                        </div>
-
-                        <div class="progress">
-                            <div class="green" style="width:17%;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="field">
-
-                        <div class="field-title">
-                            <span>Bioinformatics</span>
-                            <span style="color:#ed781e;">13%</span>
-                        </div>
-
-                        <div class="progress">
-                            <div class="orange" style="width:13%;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="field">
-
-                        <div class="field-title">
-                            <span>Data Science</span>
-                            <span style="color:#25bbc4;">10%</span>
-                        </div>
-
-                        <div class="progress">
-                            <div class="cyan" style="width:10%;"></div>
-                        </div>
-
-                    </div>
+                    <div id="researchFieldsContainer"></div>
 
                 </div>
 
@@ -1115,89 +912,7 @@
 
                     </div>
 
-
-                    <div class="country">
-
-                        <div class="country-row">
-                            <span>🇺🇸 &nbsp; USA</span>
-                            <span>842</span>
-                        </div>
-
-                        <div class="country-bar">
-                            <div class="blue" style="width:100%;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="country">
-
-                        <div class="country-row">
-                            <span>🇮🇳 &nbsp; India</span>
-                            <span>619</span>
-                        </div>
-
-                        <div class="country-bar">
-                            <div style="width:73%; background:#243e96;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="country">
-
-                        <div class="country-row">
-                            <span>🇨🇳 &nbsp; China</span>
-                            <span>504</span>
-                        </div>
-
-                        <div class="country-bar">
-                            <div class="purple" style="width:60%;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="country">
-
-                        <div class="country-row">
-                            <span>🇩🇪 &nbsp; Germany</span>
-                            <span>287</span>
-                        </div>
-
-                        <div class="country-bar">
-                            <div class="green" style="width:34%;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="country">
-
-                        <div class="country-row">
-                            <span>🇬🇧 &nbsp; UK</span>
-                            <span>241</span>
-                        </div>
-
-                        <div class="country-bar">
-                            <div class="orange" style="width:29%;"></div>
-                        </div>
-
-                    </div>
-
-
-                    <div class="country">
-
-                        <div class="country-row">
-                            <span>🇯🇵 &nbsp; Japan</span>
-                            <span>198</span>
-                        </div>
-
-                        <div class="country-bar">
-                            <div class="cyan" style="width:24%;"></div>
-                        </div>
-
-                    </div>
+                    <div id="topCountriesContainer"></div>
 
                 </div>
 
@@ -1225,58 +940,9 @@
 
                     <div class="trend">
 
-                        <div class="trend-line">
+                        <div class="trend-line" id="publicationTrendChart"></div>
 
-                            <svg viewBox="0 0 800 170"
-                                 preserveAspectRatio="none">
-
-                                <polyline
-                                    points="0,135 70,120 140,125 210,105 280,100 350,82 420,96 490,75 560,65 630,48 700,38 800,22"
-                                    fill="none"
-                                    stroke="#4785df"
-                                    stroke-width="4"
-                                />
-
-                                <polyline
-                                    points="0,135 70,120 140,125 210,105 280,100 350,82 420,96 490,75 560,65 630,48 700,38 800,22 800,170 0,170"
-                                    fill="rgba(71,133,223,0.08)"
-                                    stroke="none"
-                                />
-
-                                <circle cx="0" cy="135" r="5" fill="#4785df"/>
-                                <circle cx="70" cy="120" r="5" fill="#4785df"/>
-                                <circle cx="140" cy="125" r="5" fill="#4785df"/>
-                                <circle cx="210" cy="105" r="5" fill="#4785df"/>
-                                <circle cx="280" cy="100" r="5" fill="#4785df"/>
-                                <circle cx="350" cy="82" r="5" fill="#4785df"/>
-                                <circle cx="420" cy="96" r="5" fill="#4785df"/>
-                                <circle cx="490" cy="75" r="5" fill="#4785df"/>
-                                <circle cx="560" cy="65" r="5" fill="#4785df"/>
-                                <circle cx="630" cy="48" r="5" fill="#4785df"/>
-                                <circle cx="700" cy="38" r="5" fill="#4785df"/>
-                                <circle cx="800" cy="22" r="5" fill="#4785df"/>
-
-                            </svg>
-
-                        </div>
-
-
-                        <div class="months">
-
-                            <span>Jan</span>
-                            <span>Feb</span>
-                            <span>Mar</span>
-                            <span>Apr</span>
-                            <span>May</span>
-                            <span>Jun</span>
-                            <span>Jul</span>
-                            <span>Aug</span>
-                            <span>Sep</span>
-                            <span>Oct</span>
-                            <span>Nov</span>
-                            <span>Dec</span>
-
-                        </div>
+                        <div class="months" id="publicationTrendMonths"></div>
 
                     </div>
 
@@ -1298,78 +964,7 @@
                     </div>
 
 
-                    <div class="collaboration">
-
-                        <div class="collab-avatar">DA</div>
-
-                        <div class="collab-info">
-                            <strong>Dr. Ananya Krishnan × Nair</strong>
-                            <span>AI in Healthcare</span>
-                        </div>
-
-                        <span class="status">Active</span>
-
-                    </div>
-
-
-                    <div class="collaboration">
-
-                        <div class="collab-avatar">PR</div>
-
-                        <div class="collab-info">
-                            <strong>Prof. Rahul Mehta × Zhang</strong>
-                            <span>Quantum Computing</span>
-                        </div>
-
-                        <span class="status">Active</span>
-
-                    </div>
-
-
-                    <div class="collaboration">
-
-                        <div class="collab-avatar">DS</div>
-
-                        <div class="collab-info">
-                            <strong>Dr. Sarah Chen × Braun</strong>
-                            <span>Climate Modeling</span>
-                        </div>
-
-                        <span class="status completed">
-                            Completed
-                        </span>
-
-                    </div>
-
-
-                    <div class="collaboration">
-
-                        <div class="collab-avatar">DJ</div>
-
-                        <div class="collab-info">
-                            <strong>Dr. James Okafor × Krishnan</strong>
-                            <span>AI in Healthcare</span>
-                        </div>
-
-                        <span class="status">Active</span>
-
-                    </div>
-
-
-                    <div class="collaboration">
-
-                        <div class="collab-avatar">PN</div>
-
-                        <div class="collab-info">
-                            <strong>Prof. Priya Nair × Okafor</strong>
-                            <span>Bioinformatics Pipeline</span>
-                        </div>
-
-                        <span class="status pending">
-                            Pending
-                        </span>
-
-                    </div>
+                    <div id="recentCollaborationsContainer"></div>
 
                 </div>
 
@@ -1402,149 +997,7 @@
 
                     </thead>
 
-
-                    <tbody>
-
-                        <tr>
-
-                            <td>
-                                <span class="rank">1</span>
-                            </td>
-
-                            <td>
-                                <div class="researcher">
-                                    <span class="researcher-avatar">RM</span>
-                                    Prof. Rahul Mehta
-                                </div>
-                            </td>
-
-                            <td>MIT</td>
-                            <td>Quantum Computing</td>
-
-                            <td class="h-index">35</td>
-
-                            <td>142</td>
-                            <td>7,210</td>
-
-                            <td>
-                                <span class="status">Active</span>
-                            </td>
-
-                        </tr>
-
-
-                        <tr>
-
-                            <td>
-                                <span class="rank">2</span>
-                            </td>
-
-                            <td>
-                                <div class="researcher">
-                                    <span class="researcher-avatar">YT</span>
-                                    Prof. Yuki Tanaka
-                                </div>
-                            </td>
-
-                            <td>Tokyo Univ.</td>
-                            <td>Machine Learning</td>
-
-                            <td class="h-index">33</td>
-
-                            <td>128</td>
-                            <td>6,900</td>
-
-                            <td>
-                                <span class="status">Active</span>
-                            </td>
-
-                        </tr>
-
-
-                        <tr>
-
-                            <td>
-                                <span class="rank">3</span>
-                            </td>
-
-                            <td>
-                                <div class="researcher">
-                                    <span class="researcher-avatar">PN</span>
-                                    Prof. Priya Nair
-                                </div>
-                            </td>
-
-                            <td>IIT Bombay</td>
-                            <td>Data Science</td>
-
-                            <td class="h-index">31</td>
-
-                            <td>110</td>
-                            <td>5,620</td>
-
-                            <td>
-                                <span class="status">Active</span>
-                            </td>
-
-                        </tr>
-
-
-                        <tr>
-
-                            <td>
-                                <span class="rank">4</span>
-                            </td>
-
-                            <td>
-                                <div class="researcher">
-                                    <span class="researcher-avatar">AK</span>
-                                    Dr. Ananya Krishnan
-                                </div>
-                            </td>
-
-                            <td>IIT Bombay</td>
-                            <td>Machine Learning</td>
-
-                            <td class="h-index">28</td>
-
-                            <td>94</td>
-                            <td>3,840</td>
-
-                            <td>
-                                <span class="status">Active</span>
-                            </td>
-
-                        </tr>
-
-
-                        <tr>
-
-                            <td>
-                                <span class="rank">5</span>
-                            </td>
-
-                            <td>
-                                <div class="researcher">
-                                    <span class="researcher-avatar">MZ</span>
-                                    Dr. Mei Zhang
-                                </div>
-                            </td>
-
-                            <td>Stanford</td>
-                            <td>Quantum Computing</td>
-
-                            <td class="h-index">26</td>
-
-                            <td>89</td>
-                            <td>4,310</td>
-
-                            <td>
-                                <span class="status">Active</span>
-                            </td>
-
-                        </tr>
-
-                    </tbody>
+                    <tbody id="topResearchersTableBody"></tbody>
 
                 </table>
 
@@ -1554,98 +1007,209 @@
 
     </main>
 
+<script src="js/common.js"></script>
+<script>
+    function formatNumber(value) {
+        return Number(value || 0).toLocaleString();
+    }
 
-    <script>
+    function getInitials(name) {
+        if (!name) return "NA";
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
 
-               async function loadUser() {
+    function renderStats(stats) {
+        const statsContainer = document.getElementById("statsContainer");
+        if (!statsContainer) return;
 
-            const token =
-                localStorage.getItem("access_token");
+        const icons = ["👥", "🏢", "📄", "🎓", "🔗"];
 
-            if (!token) {
-                window.location.href = "login.html";
+        statsContainer.innerHTML = (stats || []).map((stat, index) => `
+            <div class="stat-card">
+                <div class="stat-icon">${icons[index] || "📊"}</div>
+                <h3>${stat.label || "Metric"}</h3>
+                <div class="stat-number">${formatNumber(stat.value)}</div>
+                <div class="increase">↑ ${stat.trend || "0 this month"}</div>
+                <div class="mini-line"></div>
+            </div>
+        `).join("");
+    }
+
+    function renderResearchFields(fields) {
+        const container = document.getElementById("researchFieldsContainer");
+        if (!container) return;
+
+        const palette = ["blue", "purple", "green", "orange", "cyan"];
+
+        container.innerHTML = (fields || []).map((field, index) => {
+            const colorClass = palette[index % palette.length];
+            return `
+                <div class="field">
+                    <div class="field-title">
+                        <span>${field.name || "Field"}</span>
+                        <span style="color:${colorClass === 'blue' ? '#4285df' : colorClass === 'purple' ? '#a33dd4' : colorClass === 'green' ? '#37c878' : colorClass === 'orange' ? '#ed781e' : '#25bbc4'};">${field.percent || 0}%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="${colorClass}" style="width:${field.percent || 0}%;"></div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderTopCountries(countries) {
+        const container = document.getElementById("topCountriesContainer");
+        if (!container) return;
+
+        const flags = ["🇺🇸", "🇮🇳", "🇨🇳", "🇩🇪", "🇬🇧", "🇯🇵"];
+        const palette = ["blue", "#243e96", "purple", "green", "orange", "cyan"];
+
+        container.innerHTML = (countries || []).map((country, index) => {
+            const color = palette[index] || "blue";
+            const width = Math.max(country.percent || 0, 8);
+            return `
+                <div class="country">
+                    <div class="country-row">
+                        <span>${flags[index] || "🌍"} &nbsp; ${country.name || "Country"}</span>
+                        <span>${country.count || 0}</span>
+                    </div>
+                    <div class="country-bar">
+                        <div style="width:${width}%; ${color === 'blue' ? 'background:#4285df' : color === '#243e96' ? 'background:#243e96' : color === 'purple' ? 'background:#a33dd4' : color === 'green' ? 'background:#37c878' : color === 'orange' ? 'background:#ed781e' : 'background:#25bbc4'};"></div>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderWeeklyActivity(weeklyActivity) {
+        const chart = document.getElementById("weeklyActivityChart");
+        const badge = document.getElementById("weeklyTotalBadge");
+        if (!chart) return;
+
+        const maxValue = Math.max(...(weeklyActivity || []).map(item => Number(item.value || 0)), 1);
+        const total = (weeklyActivity || []).reduce((sum, item) => sum + Number(item.value || 0), 0);
+
+        if (badge) badge.textContent = `${total} total`;
+
+        chart.innerHTML = (weeklyActivity || []).map((item) => {
+            const height = Math.max((Number(item.value || 0) / maxValue) * 100, 8);
+            const isFriday = item.day === "Fri" ? "friday" : "";
+            return `
+                <div class="bar-wrapper">
+                    <div class="bar ${isFriday}" style="height: ${height}%;"></div>
+                    <div class="day">${item.day}</div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderPublicationTrend(values) {
+        const chart = document.getElementById("publicationTrendChart");
+        const months = document.getElementById("publicationTrendMonths");
+        if (!chart || !months) return;
+
+        const data = values || [];
+        const maxValue = Math.max(...data.map(item => Number(item.value || 0)), 1);
+        const points = data.map((item, index) => {
+            const x = (index / Math.max(data.length - 1, 1)) * 800;
+            const y = 170 - ((Number(item.value || 0) / maxValue) * 130 + 20);
+            return `${x},${y}`;
+        });
+
+        const areaPoints = `${points.join(" ")} 800,170 0,170`;
+
+        chart.innerHTML = `
+            <svg viewBox="0 0 800 170" preserveAspectRatio="none">
+                <polyline points="${points.join(" ")}" fill="none" stroke="#4785df" stroke-width="4" />
+                <polyline points="${areaPoints}" fill="rgba(71,133,223,0.08)" stroke="none" />
+                ${points.map((point, index) => {
+                    const [x, y] = point.split(',');
+                    return `<circle cx="${x}" cy="${y}" r="5" fill="#4785df"/>`;
+                }).join("")}
+            </svg>
+        `;
+
+        months.innerHTML = (data || []).map(item => `<span>${item.month}</span>`).join("");
+    }
+
+    function renderRecentCollaborations(collaborations) {
+        const container = document.getElementById("recentCollaborationsContainer");
+        if (!container) return;
+
+        container.innerHTML = (collaborations || []).map((item) => {
+            const statusClass = {
+                "Active": "",
+                "Completed": "completed",
+                "Pending": "pending"
+            }[item.status] || "";
+
+            const initials = getInitials(item.researcher_1 || item.researcher_2 || "SC");
+            return `
+                <div class="collaboration">
+                    <div class="collab-avatar">${initials.slice(0,2).toUpperCase()}</div>
+                    <div class="collab-info">
+                        <strong>${(item.researcher_1 || "Unknown")} × ${(item.researcher_2 || "Unknown")}</strong>
+                        <span>${item.collaboration_type || "Collaboration"}</span>
+                    </div>
+                    <span class="status ${statusClass}">${item.status || "Active"}</span>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderTopResearchers(researchers) {
+        const tbody = document.getElementById("topResearchersTableBody");
+        if (!tbody) return;
+
+        tbody.innerHTML = (researchers || []).map((researcher, index) => `
+            <tr>
+                <td><span class="rank">${researcher.rank || index + 1}</span></td>
+                <td>
+                    <div class="researcher">
+                        <span class="researcher-avatar">${getInitials(researcher.name)}</span>
+                        ${researcher.name || "Unknown Researcher"}
+                    </div>
+                </td>
+                <td>${researcher.institution || "Unknown Institution"}</td>
+                <td>${researcher.field || "General Research"}</td>
+                <td class="h-index">${researcher.h_index || 0}</td>
+                <td>${researcher.papers || 0}</td>
+                <td>${formatNumber(researcher.citations || 0)}</td>
+                <td><span class="status">${researcher.status || "Active"}</span></td>
+            </tr>
+        `).join("");
+    }
+
+    async function loadDashboardData() {
+        try {
+            const response = await apiFetch("/dashboard/summary");
+            if (!response) return;
+
+            const data = await readJson(response);
+            if (!response.ok) {
+                console.error("Dashboard loading failed:", data);
                 return;
             }
 
-            try {
-
-                const response = await fetch(
-                    "http://127.0.0.1:8000/auth/me",
-                    {
-                        method: "GET",
-                        headers: {
-                            "Authorization":
-                                "Bearer " + token
-                        }
-                    }
-                );
-
-                const data = await response.json();
-
-                if (!response.ok) {
-
-                    localStorage.removeItem(
-                        "access_token"
-                    );
-
-                    window.location.href =
-                        "login.html";
-
-                    return;
-                }
-
-                const email =
-                    data.email || "";
-
-                const initials =
-                    email.substring(0, 2).toUpperCase();
-
-                document.getElementById(
-                    "sidebarAvatar"
-                ).textContent = initials;
-
-                document.getElementById(
-                    "headerAvatar"
-                ).textContent = initials;
-
-                document.getElementById(
-                    "sidebarName"
-                ).textContent = email;
-
-                document.getElementById(
-                    "sidebarRole"
-                ).textContent =
-                    data.role || "User";
-
-            } catch (error) {
-
-                console.error(
-                    "Dashboard error:",
-                    error
-                );
-            }
+            renderStats(data.stats || []);
+            renderResearchFields(data.research_fields || []);
+            renderTopCountries(data.top_countries || []);
+            renderWeeklyActivity(data.weekly_activity || []);
+            renderPublicationTrend(data.publication_trend || []);
+            renderRecentCollaborations(data.recent_collaborations || []);
+            renderTopResearchers(data.top_researchers || []);
+        } catch (error) {
+            console.error("Error loading dashboard data:", error);
         }
+    }
 
-
-        function openResearchers() {
-            window.location.href = "researcher.html";
-        }
-
-
-        function logout() {
-
-            localStorage.removeItem(
-                "access_token"
-            );
-
-            window.location.href =
-                "index.html";
-        }
-
-
-        loadUser();
-
-    </script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        await initializeCommon();
+        await loadDashboardData();
+    });
+</script>
 
 </body>
 </html>

@@ -1,5 +1,14 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.sql import func
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    DateTime,
+    ForeignKey
+)
+from sqlalchemy.orm import relationship
 
 from backend.app.database.base import Base
 
@@ -15,22 +24,52 @@ class ConferenceParticipant(Base):
 
     conference_id = Column(
         Integer,
-        ForeignKey("conferences.id"),
-        nullable=False
+        ForeignKey(
+            "conferences.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True
     )
 
     researcher_id = Column(
         Integer,
-        ForeignKey("researchers.id"),
-        nullable=False
+        ForeignKey(
+            "researchers.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True
     )
 
-    participation_type = Column(
+    role = Column(
         String(100),
         nullable=True
     )
 
+    registration_status = Column(
+        String(50),
+        nullable=False,
+        default="Registered"
+    )
+
+    attended = Column(
+        Boolean,
+        nullable=False,
+        default=False
+    )
+
     created_at = Column(
         DateTime(timezone=True),
-        server_default=func.now()
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    conference = relationship(
+        "Conference",
+        back_populates="participants"
+    )
+
+    researcher = relationship(
+        "Researcher"
     )

@@ -12,3 +12,4 @@ from .research_interests import ResearchInterest
 from .researcher_interests import ResearcherInterest
 from .funding import Funding
 from .institution_partnerships import InstitutionPartnership
+from .captcha_challenges import CaptchaChallenge
