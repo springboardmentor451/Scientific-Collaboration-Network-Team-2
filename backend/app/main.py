@@ -2,12 +2,13 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import FastAPI, Depends
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-from .database.connection import engine, ensure_captcha_schema, test_connection
+from .database.connection import engine, ensure_captcha_schema, ensure_profile_schema, test_connection
 from .database.base import Base
 
 from .routes.auth import router as auth_router
@@ -60,8 +61,15 @@ app.add_middleware(
 
     allow_origins=[
         "http://127.0.0.1:5500",
-        "http://localhost:5500"
+        "http://localhost:5500",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "http://127.0.0.1:5501",
+        "http://localhost:5501",
+        "http://127.0.0.1:3000",
+        "http://localhost:3000"
     ],
+    allow_origin_regex=r"https?://.*",
 
     allow_credentials=True,
 
@@ -69,6 +77,7 @@ app.add_middleware(
 
     allow_headers=["*"]
 )
+
 
 
 # =========================================================
@@ -79,6 +88,11 @@ Base.metadata.create_all(
     bind=engine
 )
 ensure_captcha_schema()
+ensure_profile_schema()
+
+UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
 # =========================================================

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from backend.app.database.session import get_db
@@ -26,6 +28,7 @@ class ProfileResponse(BaseModel):
     email: EmailStr
     role: str
     is_active: bool
+    avatar_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -39,6 +42,10 @@ class ProfileUpdate(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+
+class ProfileAvatarResponse(BaseModel):
+    avatar_url: str
 
 
 # ============================================================
@@ -156,6 +163,32 @@ def update_profile(
     db.refresh(user)
 
     return user
+
+
+@router.post("/me/avatar", response_model=ProfileAvatarResponse)
+async def upload_avatar(
+    avatar: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    user = get_user_from_token(current_user, db)
+    allowed_types = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+    suffix = allowed_types.get(avatar.content_type)
+    if not suffix:
+        raise HTTPException(status_code=400, detail="Please upload a JPG, PNG, or WebP image.")
+
+    contents = await avatar.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Profile images must be 5 MB or smaller.")
+
+    upload_dir = Path(__file__).resolve().parents[3] / "uploads"
+    upload_dir.mkdir(exist_ok=True)
+    filename = f"profile_{user.id}{suffix}"
+    (upload_dir / filename).write_bytes(contents)
+    user.avatar_url = f"/uploads/{filename}"
+    db.commit()
+    db.refresh(user)
+    return {"avatar_url": user.avatar_url}
 
 
 # ============================================================

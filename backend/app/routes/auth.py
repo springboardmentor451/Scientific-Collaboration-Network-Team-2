@@ -228,7 +228,10 @@ def get_me(
 
     return {
         "user_id": current_user.get("sub"),
+        "id": user.id if user else int(current_user.get("sub")),
         "full_name": user.full_name if user else current_user.get("email"),
         "email": user.email if user else current_user.get("email"),
-        "role": user.role if user else current_user.get("role")
+        "role": user.role if user else current_user.get("role"),
+        "avatar_url": user.avatar_url if user else None,
+        "is_active": user.is_active if user else True
     }

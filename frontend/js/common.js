@@ -341,92 +341,493 @@ function getUserRole(user) {
 ========================================================= */
 
 function updateUserProfile(user) {
-
     if (!user) {
         return;
     }
 
+    const initials = getInitials(user);
+    const displayName = getUserDisplayName(user);
+    const role = getUserRole(user);
+    const avatarUrl = user.avatar_url;
+    const cacheBuster = "?t=" + (user._t || Date.now());
+    const avatarSrc = avatarUrl ? (avatarUrl.startsWith("http") ? avatarUrl : API_BASE_URL + avatarUrl) + cacheBuster : null;
 
-    const initials =
-        getInitials(user);
+    const escapeHtml = (val) => String(val ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]));
 
-
-    const displayName =
-        getUserDisplayName(user);
-
-
-    const role =
-        getUserRole(user);
-
-
-    const sidebarAvatar =
-        document.getElementById("sidebarAvatar") ||
-        document.getElementById("userAvatar");
-
-
-    if (sidebarAvatar) {
-
-        sidebarAvatar.textContent =
-            initials;
+    function setAvatarContent(elem) {
+        if (!elem) return;
+        if (avatarSrc) {
+            elem.style.background = "transparent";
+            elem.style.padding = "0";
+            elem.style.border = "none";
+            elem.style.overflow = "hidden";
+            elem.innerHTML = `<img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(displayName)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />`;
+        } else {
+            elem.innerHTML = "";
+            elem.textContent = initials;
+            elem.style.background = "#2f65d9";
+            elem.style.color = "#ffffff";
+        }
+        elem.classList.add("profile-trigger-btn");
+        elem.title = "View & Edit User Profile";
+        elem.style.cursor = "pointer";
     }
 
+    // Header avatars
+    const headerAvatars = document.querySelectorAll("#headerAvatar, #profileCircle, .header-avatar, .profile-circle, .avatar");
+    headerAvatars.forEach(setAvatarContent);
 
-    const headerAvatar =
-        document.getElementById("headerAvatar") ||
-        document.getElementById("profileCircle");
+    // Sidebar avatars
+    const sidebarAvatars = document.querySelectorAll("#sidebarAvatar, #userAvatar, .user-avatar");
+    sidebarAvatars.forEach(setAvatarContent);
 
-
-    if (headerAvatar) {
-
-        headerAvatar.textContent =
-            initials;
+    const sidebarUser = document.querySelector(".sidebar-user");
+    if (sidebarUser) {
+        sidebarUser.style.cursor = "pointer";
+        sidebarUser.title = "View & Edit User Profile";
     }
 
+    // Sidebar & Header user text labels
+    const sidebarName = document.getElementById("sidebarName") || document.getElementById("userName");
+    if (sidebarName) sidebarName.textContent = displayName;
 
-    const sidebarName =
-        document.getElementById("sidebarName") ||
-        document.getElementById("userName");
+    const sidebarRole = document.getElementById("sidebarRole");
+    if (sidebarRole) sidebarRole.textContent = role;
 
+    const userRole = document.getElementById("userRole");
+    if (userRole) userRole.textContent = role;
 
-    if (sidebarName) {
+    const headerUserName = document.getElementById("headerUserName");
+    if (headerUserName) headerUserName.textContent = displayName;
+}
 
-        sidebarName.textContent =
-            displayName;
+/* =========================================================
+   USER PROFILE MODAL
+========================================================= */
+
+function ensureUserProfileModal() {
+    if (document.getElementById("scicollabProfileModal")) {
+        return;
     }
 
+    const modalHtml = `
+    <div id="scicollabProfileModal" class="profile-modal-overlay" aria-hidden="true" style="display:none;">
+        <div class="profile-modal-card">
+            <div class="profile-modal-header">
+                <div class="profile-modal-title">
+                    <span class="modal-header-icon">👤</span>
+                    <div>
+                        <h2>User Profile & Settings</h2>
+                        <p>Manage your account details, photo, and security</p>
+                    </div>
+                </div>
+                <button type="button" class="profile-modal-close" id="closeProfileModalBtn" aria-label="Close">&times;</button>
+            </div>
 
-    const sidebarRole =
-        document.getElementById("sidebarRole");
+            <div class="profile-tabs">
+                <button type="button" class="profile-tab active" data-tab="overview">Overview</button>
+                <button type="button" class="profile-tab" data-tab="avatar">Upload Picture</button>
+                <button type="button" class="profile-tab" data-tab="edit">Edit Profile</button>
+                <button type="button" class="profile-tab" data-tab="password">Change Password</button>
+            </div>
 
+            <div class="profile-modal-body">
+                <div id="profileAlert" class="profile-alert" style="display:none;"></div>
 
-    if (sidebarRole) {
+                <!-- OVERVIEW TAB -->
+                <div class="profile-tab-content active" data-content="overview">
+                    <div class="profile-overview-card">
+                        <div class="profile-avatar-big" id="overviewAvatarBig">US</div>
+                        <div class="profile-overview-info">
+                            <h3 id="overviewName">User Name</h3>
+                            <p class="profile-email" id="overviewEmail">user@example.com</p>
+                            <span class="profile-role-badge" id="overviewRole">Researcher</span>
+                        </div>
+                    </div>
+                    <div class="profile-details-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">User ID</span>
+                            <span class="detail-val" id="overviewId">#--</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Account Status</span>
+                            <span class="detail-val status-active" id="overviewStatus">Active</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Role</span>
+                            <span class="detail-val" id="overviewRoleDetail">Researcher</span>
+                        </div>
+                    </div>
+                    <div class="profile-quick-actions">
+                        <button type="button" class="btn-secondary" onclick="switchProfileTab('avatar')">📷 Change Picture</button>
+                        <button type="button" class="btn-secondary" onclick="switchProfileTab('edit')">✏️ Edit Details</button>
+                        <button type="button" class="btn-secondary" onclick="switchProfileTab('password')">🔑 Change Password</button>
+                    </div>
+                </div>
 
-        sidebarRole.textContent =
-            role;
+                <!-- AVATAR UPLOAD TAB -->
+                <div class="profile-tab-content" data-content="avatar">
+                    <form id="avatarUploadForm" class="profile-form">
+                        <div class="avatar-upload-box">
+                            <div class="profile-avatar-big" id="uploadAvatarPreview">US</div>
+                            <div class="upload-controls">
+                                <button type="button" class="btn-upload" id="chooseAvatarFileBtn">Choose Image File</button>
+                                <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp" style="display:none;" />
+                                <span class="file-name-display" id="avatarFileName">No file selected</span>
+                                <small class="help-text">Supported: JPG, PNG, WebP (Max 5 MB)</small>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary" id="saveAvatarBtn" disabled>Upload Profile Picture</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- EDIT DETAILS TAB -->
+                <div class="profile-tab-content" data-content="edit">
+                    <form id="editProfileForm" class="profile-form">
+                        <div class="form-group-custom">
+                            <label for="editFullName">Full Name *</label>
+                            <input type="text" id="editFullName" required placeholder="Enter your full name" maxlength="100" />
+                        </div>
+                        <div class="form-group-custom">
+                            <label for="editEmail">Email Address *</label>
+                            <input type="email" id="editEmail" required placeholder="name@example.com" maxlength="100" />
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary" id="saveProfileBtn">Save Profile Details</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- CHANGE PASSWORD TAB -->
+                <div class="profile-tab-content" data-content="password">
+                    <form id="changePasswordForm" class="profile-form">
+                        <div class="form-group-custom">
+                            <label for="currentPassword">Current Password *</label>
+                            <input type="password" id="currentPassword" required placeholder="Enter current password" />
+                        </div>
+                        <div class="form-group-custom">
+                            <label for="newPassword">New Password *</label>
+                            <input type="password" id="newPassword" required placeholder="At least 6 characters" minlength="6" />
+                        </div>
+                        <div class="form-group-custom">
+                            <label for="confirmPassword">Confirm New Password *</label>
+                            <input type="password" id="confirmPassword" required placeholder="Re-enter new password" minlength="6" />
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary" id="savePasswordBtn">Update Password</button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    `;
+
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+    setupProfileModalListeners();
+}
+
+function switchProfileTab(tabName) {
+    const tabs = document.querySelectorAll(".profile-tab");
+    const contents = document.querySelectorAll(".profile-tab-content");
+    const alert = document.getElementById("profileAlert");
+
+    if (alert) alert.style.display = "none";
+
+    tabs.forEach(tab => {
+        if (tab.dataset.tab === tabName) {
+            tab.classList.add("active");
+        } else {
+            tab.classList.remove("active");
+        }
+    });
+
+    contents.forEach(content => {
+        if (content.dataset.content === tabName) {
+            content.classList.add("active");
+        } else {
+            content.classList.remove("active");
+        }
+    });
+}
+
+function showProfileAlert(message, isError = false) {
+    const alert = document.getElementById("profileAlert");
+    if (!alert) return;
+    alert.textContent = message;
+    alert.className = `profile-alert ${isError ? "error" : "success"}`;
+    alert.style.display = "block";
+}
+
+async function openUserProfileModal() {
+    ensureUserProfileModal();
+    const modal = document.getElementById("scicollabProfileModal");
+    if (!modal) return;
+
+    modal.style.display = "flex";
+    modal.setAttribute("aria-hidden", "false");
+    switchProfileTab("overview");
+
+    try {
+        const res = await apiFetch("/profile/me");
+        if (res && res.ok) {
+            const freshUser = await readJson(res);
+            freshUser._t = Date.now();
+            localStorage.setItem("current_user", JSON.stringify(freshUser));
+            updateUserProfile(freshUser);
+            populateProfileModal(freshUser);
+            return;
+        }
+    } catch (err) {
+        console.error("Failed to load fresh user profile:", err);
     }
 
-
-    const userRole =
-        document.getElementById("userRole");
-
-
-    if (userRole) {
-
-        userRole.textContent =
-            role;
-    }
-
-
-    const headerUserName =
-        document.getElementById("headerUserName");
-
-
-    if (headerUserName) {
-
-        headerUserName.textContent =
-            displayName;
+    const user = await getCurrentUser();
+    if (user) {
+        populateProfileModal(user);
     }
 }
+
+function populateProfileModal(user) {
+    const initials = getInitials(user);
+    const displayName = getUserDisplayName(user);
+    const role = getUserRole(user);
+    const avatarUrl = user.avatar_url;
+    const cacheBuster = "?t=" + (user._t || Date.now());
+    const avatarSrc = avatarUrl ? (avatarUrl.startsWith("http") ? avatarUrl : API_BASE_URL + avatarUrl) + cacheBuster : null;
+
+    const escapeHtml = (val) => String(val ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]));
+
+    function renderBigAvatar(elem) {
+        if (!elem) return;
+        if (avatarSrc) {
+            elem.style.background = "transparent";
+            elem.innerHTML = `<img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(displayName)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />`;
+        } else {
+            elem.innerHTML = "";
+            elem.textContent = initials;
+            elem.style.background = "#1f3c88";
+            elem.style.color = "#ffffff";
+        }
+    }
+
+    renderBigAvatar(document.getElementById("overviewAvatarBig"));
+    renderBigAvatar(document.getElementById("uploadAvatarPreview"));
+
+    document.getElementById("overviewName").textContent = displayName;
+    document.getElementById("overviewEmail").textContent = user.email || "";
+    document.getElementById("overviewRole").textContent = role;
+
+    document.getElementById("overviewId").textContent = `#${user.id || "--"}`;
+    document.getElementById("overviewStatus").textContent = user.is_active ? "Active" : "Inactive";
+    document.getElementById("overviewRoleDetail").textContent = role;
+
+    document.getElementById("editFullName").value = user.full_name || user.name || "";
+    document.getElementById("editEmail").value = user.email || "";
+
+    document.getElementById("changePasswordForm").reset();
+    document.getElementById("avatarUploadForm").reset();
+    const fileNameDisp = document.getElementById("avatarFileName");
+    if (fileNameDisp) fileNameDisp.textContent = "No file selected";
+    const saveAvBtn = document.getElementById("saveAvatarBtn");
+    if (saveAvBtn) saveAvBtn.disabled = true;
+}
+
+function closeUserProfileModal() {
+    const modal = document.getElementById("scicollabProfileModal");
+    if (modal) {
+        modal.style.display = "none";
+        modal.setAttribute("aria-hidden", "true");
+    }
+}
+
+function setupProfileModalListeners() {
+    const closeBtn = document.getElementById("closeProfileModalBtn");
+    if (closeBtn) {
+        closeBtn.addEventListener("click", closeUserProfileModal);
+    }
+
+    const modal = document.getElementById("scicollabProfileModal");
+    if (modal) {
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) closeUserProfileModal();
+        });
+    }
+
+    const tabs = document.querySelectorAll(".profile-tab");
+    tabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            switchProfileTab(tab.dataset.tab);
+        });
+    });
+
+    const chooseBtn = document.getElementById("chooseAvatarFileBtn");
+    const avatarInput = document.getElementById("avatarFileInput");
+    const avatarFileName = document.getElementById("avatarFileName");
+    const saveAvatarBtn = document.getElementById("saveAvatarBtn");
+    const uploadPreview = document.getElementById("uploadAvatarPreview");
+
+    if (chooseBtn && avatarInput) {
+        chooseBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            avatarInput.click();
+        });
+    }
+
+    if (avatarInput) {
+        avatarInput.addEventListener("change", () => {
+            const file = avatarInput.files[0];
+            if (file) {
+                avatarFileName.textContent = file.name;
+                saveAvatarBtn.disabled = false;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    uploadPreview.style.background = "transparent";
+                    uploadPreview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />`;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                avatarFileName.textContent = "No file selected";
+                saveAvatarBtn.disabled = true;
+            }
+        });
+    }
+
+    const avatarForm = document.getElementById("avatarUploadForm");
+    if (avatarForm) {
+        avatarForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const file = avatarInput.files[0];
+            if (!file) return;
+
+            saveAvatarBtn.disabled = true;
+            saveAvatarBtn.textContent = "Uploading...";
+
+            try {
+                const formData = new FormData();
+                formData.append("avatar", file);
+
+                const token = getToken();
+                const response = await fetch(`${API_BASE_URL}/profile/me/avatar`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    },
+                    body: formData
+                });
+
+                const data = await readJson(response);
+                if (!response.ok) {
+                    throw new Error(data.detail || "Failed to upload avatar.");
+                }
+
+                // Fetch full fresh profile from /profile/me
+                const profRes = await apiFetch("/profile/me");
+                let updatedUser = null;
+                if (profRes && profRes.ok) {
+                    updatedUser = await readJson(profRes);
+                    updatedUser._t = Date.now();
+                    localStorage.setItem("current_user", JSON.stringify(updatedUser));
+                } else {
+                    localStorage.removeItem("current_user");
+                    updatedUser = await getCurrentUser();
+                }
+
+                updateUserProfile(updatedUser);
+                populateProfileModal(updatedUser);
+
+                showProfileAlert("Profile picture updated successfully!");
+                setTimeout(() => switchProfileTab("overview"), 1000);
+            } catch (error) {
+                showProfileAlert(error.message, true);
+            } finally {
+                saveAvatarBtn.disabled = false;
+                saveAvatarBtn.textContent = "Upload Profile Picture";
+            }
+        });
+    }
+
+    const editForm = document.getElementById("editProfileForm");
+    if (editForm) {
+        editForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const saveBtn = document.getElementById("saveProfileBtn");
+            saveBtn.disabled = true;
+            saveBtn.textContent = "Saving...";
+
+            const fullName = document.getElementById("editFullName").value.trim();
+            const email = document.getElementById("editEmail").value.trim();
+
+            try {
+                const response = await apiFetch("/profile/me", {
+                    method: "PUT",
+                    body: JSON.stringify({ full_name: fullName, email: email })
+                });
+
+                const data = await readJson(response);
+                if (!response || !response.ok) {
+                    throw new Error(data.detail || "Failed to update profile.");
+                }
+
+                localStorage.setItem("current_user", JSON.stringify(data));
+                updateUserProfile(data);
+                populateProfileModal(data);
+
+                showProfileAlert("Profile details updated successfully!");
+                setTimeout(() => switchProfileTab("overview"), 1000);
+            } catch (error) {
+                showProfileAlert(error.message, true);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = "Save Profile Details";
+            }
+        });
+    }
+
+    const passwordForm = document.getElementById("changePasswordForm");
+    if (passwordForm) {
+        passwordForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const current_password = document.getElementById("currentPassword").value;
+            const new_password = document.getElementById("newPassword").value;
+            const confirm_password = document.getElementById("confirmPassword").value;
+
+            if (new_password !== confirm_password) {
+                showProfileAlert("New password and confirmation do not match.", true);
+                return;
+            }
+
+            const saveBtn = document.getElementById("savePasswordBtn");
+            saveBtn.disabled = true;
+            saveBtn.textContent = "Updating...";
+
+            try {
+                const response = await apiFetch("/profile/change-password", {
+                    method: "PUT",
+                    body: JSON.stringify({ current_password, new_password })
+                });
+
+                const data = await readJson(response);
+                if (!response || !response.ok) {
+                    throw new Error(data.detail || "Failed to change password.");
+                }
+
+                passwordForm.reset();
+                showProfileAlert("Password changed successfully!");
+                setTimeout(() => switchProfileTab("overview"), 1200);
+            } catch (error) {
+                showProfileAlert(error.message, true);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = "Update Password";
+            }
+        });
+    }
+}
+
 
 
 async function updateHeaderNotifications() {
@@ -1260,7 +1661,16 @@ async function initializeCommon() {
 
     await updateHeaderNotifications();
 
+    document.addEventListener("click", (e) => {
+        const trigger = e.target.closest("#headerAvatar, #profileCircle, .profile-trigger-btn, .header-avatar-btn, .sidebar-user, .user-avatar");
+        if (trigger && !e.target.closest("#logoutButton") && !e.target.closest(".logout-btn")) {
+            e.preventDefault();
+            openUserProfileModal();
+        }
+    });
+
 }
+
 
 
 /* =========================================================
