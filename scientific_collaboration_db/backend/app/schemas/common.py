@@ -98,6 +98,7 @@ class PublicationOut(BaseModel):
     pages: str | None = None
     publication_date: date | None
     author_names: list[str] = []
+    institution_name: str | None = None
     file_name: str | None = None
 
 
@@ -116,6 +117,7 @@ class ProjectOut(BaseModel):
     start_date: date | None
     end_date: date | None
     funding_source: str | None
+    progress_percentage: int | None = None
     lead_institution: InstitutionOut | None = None
     lead_researcher_name: str | None = None
     member_names: list[str] = []

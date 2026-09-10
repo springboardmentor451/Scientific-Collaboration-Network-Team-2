@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     # Public base URL of this API, used to build the verification link sent by email
-    API_BASE_URL: str = "http://localhost:8000"
+    API_BASE_URL: str = "http://127.0.0.1:8001"
 
     # SMTP (used to send real verification emails). Leave SMTP_USERNAME blank
     # to fall back to "dev mode", where the verification link is logged to the
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "scan_password"
     POSTGRES_DB: str = "scientific_collab_db"
     POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5432
+    POSTGRES_PORT: int = 5433
 
     DATABASE_URL: str | None = None
 

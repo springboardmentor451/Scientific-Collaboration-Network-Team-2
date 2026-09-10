@@ -25,7 +25,7 @@ You need a local PostgreSQL server (v14+). If you don't have one:
   ```
   docker compose up -d db
   ```
-  This starts Postgres on `localhost:5432` with user `scan_user` /
+  This starts Postgres on `localhost:5433` with user `scan_user` /
   password `scan_password`, database `scientific_collab_db` — matching the
   `.env` file already in `backend/`.
 
@@ -75,30 +75,37 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 # source venv/bin/activate   # Mac/Linux
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 ```
 
-Check it's alive: open http://localhost:8000/health — should show
+Check it's alive: open http://localhost:8001/health — should show
 `{"status":"ok","database":"connected"}`. Interactive API docs are at
-http://localhost:8000/docs.
+http://localhost:8001/docs.
 
 ## 4. Open the frontend
 
-Just open `frontend/ResearchSphere.html` directly in your browser (double-click
-it, or drag it into a browser tab). No build step, no server needed for the
-frontend itself — it's a single HTML file that talks to the API at
-`http://localhost:8000` over `fetch()`.
+**Serve it over HTTP — don't just double-click the file.** Opening
+`ResearchSphere.html` directly (`file:///...`) makes some browsers (Chrome on
+Windows especially) block its `fetch()` calls to `localhost`, even when the
+backend is running fine. Instead, from the `frontend` folder run:
+```bash
+python -m http.server 5500
+```
+then open `http://127.0.0.1:5500/ResearchSphere.html` in your browser. No
+build step needed — it's a single HTML file that talks to the API at
+`http://127.0.0.1:8001` over `fetch()`.
 
 Log in with any of the demo accounts above (2-step verification is a cosmetic
 UI step — the code is echoed as a toast + the browser console, just click
 through it). You should see real data: real researchers, real publications,
 real projects, etc., not the placeholder data from before.
 
-If your backend runs somewhere other than `localhost:8000`, change this one
+If your backend runs somewhere other than `127.0.0.1:8001`, change this one
 line near the top of the `<script>` block in `ResearchSphere.html`:
 ```js
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://127.0.0.1:8001';
 ```
+
 
 ---
 
@@ -482,6 +489,37 @@ deleting it.
 - `frontend/ResearchSphere.html` — added real Delete/Suspend for users and
   real Edit for conferences; fixed a duplicate `deleteUser` function
   declaration found while wiring these in
+- `frontend/ResearchSphere.html`, `backend/app/routers/institutions.py` —
+  fixed a real Institution Admin scoping bug/security gap (see below)
 
 Everything else — models, migrations, all other routers, schemas — is
 unchanged from what you uploaded.
+
+## Institution Admin scoping bug — found and fixed (this round)
+
+Screenshots showed an Institution Admin assigned to "GTU" seeing *every*
+institution on the platform on their Institution page, not just their own.
+Investigating turned up two separate problems, one cosmetic and one a real
+security gap:
+
+- **Frontend:** `renderInstitution()` always listed every institution in
+  `institutionsCache` with no filtering by role. Fixed: an Institution Admin
+  now only ever sees the one institution they're actually assigned to
+  (`currentUser.institution`, backed by `users.institution_id`). System
+  Admin is unaffected and still sees everything. The "+ Add institution"
+  button is also now System-Admin-only, matching the backend rule below.
+- **Backend (the real gap):** `PUT /institutions/{id}` allowed *any*
+  Institution Admin to edit *any* institution's record by ID — not just
+  their own — since the endpoint only checked "are you an admin of some
+  kind," never "is this actually your institution." Fixed with an explicit
+  ownership check; also restricted `POST /institutions` (creating a new
+  institution) to System Admin only, since an Institution Admin managing
+  one institution has no legitimate reason to create new ones.
+
+Verified live end-to-end via the API: logged in as an Institution Admin
+assigned to "Lake Roberto University," confirmed `/auth/me` returns that
+exact institution, confirmed editing a *different* institution now
+correctly returns `403 Forbidden`, confirmed editing *their own* institution
+still works, and confirmed attempting to create a new institution as this
+role also correctly returns `403`.
+

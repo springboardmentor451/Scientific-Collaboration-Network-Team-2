@@ -95,3 +95,33 @@ def send_conference_registration_email(to_email: str, conference_name: str, role
         f"You can turn these emails off anytime from Settings in the app.\n"
     )
     send_email(to_email, subject, body)
+
+
+def send_review_assigned_email(to_email: str, publication_title: str, note: str | None) -> None:
+    subject = "You've been assigned a publication to review — Scientific Collaboration Network Analyzer"
+    note_line = f"\nInstructions from the admin: {note}\n" if note else ""
+    body = (
+        f"Hi,\n\n"
+        f"You've been assigned to review the publication \"{publication_title}\".\n"
+        f"{note_line}\n"
+        f"Sign in and open your Review queue to approve, request changes, or reject it.\n\n"
+        f"You can turn these emails off anytime from Settings in the app.\n"
+    )
+    send_email(to_email, subject, body)
+
+
+def send_review_decided_email(to_email: str, publication_title: str, status: str, comments: str | None) -> None:
+    status_label = {
+        "approved": "approved",
+        "changes_requested": "sent back with requested changes",
+        "rejected": "rejected",
+    }.get(status, status)
+    subject = f"Your publication was {status_label} — Scientific Collaboration Network Analyzer"
+    comments_line = f"\nReviewer's comments: {comments}\n" if comments else ""
+    body = (
+        f"Hi,\n\n"
+        f"Your publication \"{publication_title}\" has been {status_label} by its assigned reviewer.\n"
+        f"{comments_line}\n"
+        f"You can turn these emails off anytime from Settings in the app.\n"
+    )
+    send_email(to_email, subject, body)

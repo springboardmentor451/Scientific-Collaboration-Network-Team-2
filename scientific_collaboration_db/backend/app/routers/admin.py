@@ -18,9 +18,9 @@ from app.database import get_db
 from app.models import (
     AuditLog, Citation, Collaboration, Conference, ConferenceParticipation,
     Institution, Project, ProjectMember, Publication, PublicationAuthor,
-    Researcher, Tag, User, UserRole,
+    PublicationReview, Researcher, ReviewStatus, Tag, User, UserRole,
 )
-from app.schemas.admin import UserAdminUpdate
+from app.schemas.admin import StaffAccountCreate, UserAdminUpdate
 from app.schemas.auth import UserOut
 from app.schemas.common import ResearcherOut
 from app.schemas.researcher import ResearcherUpdate
@@ -50,10 +50,20 @@ def admin_create_researcher(
     + researcher profile in one step, then emails the new researcher a real
     password-reset link so they set their own password on first login
     (mirrors /auth/forgot-password — same token + email plumbing).
+
+    An Institution Admin can only onboard researchers into their own
+    institution — the institution_id they pass is ignored in favor of
+    their own, so they can't quietly attach a researcher elsewhere.
     """
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A user with this email already exists")
+
+    institution_id = payload.institution_id
+    if current_user.role == UserRole.INSTITUTION_ADMIN:
+        if not current_user.effective_institution_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account isn't linked to an institution yet")
+        institution_id = current_user.effective_institution_id
 
     user = User(
         email=payload.email,
@@ -69,7 +79,7 @@ def admin_create_researcher(
         full_name=payload.full_name,
         department=payload.department,
         academic_title=payload.academic_title,
-        institution_id=payload.institution_id,
+        institution_id=institution_id,
     )
     db.add(researcher)
 
@@ -88,22 +98,144 @@ def admin_create_researcher(
     return researcher
 
 
+@router.post("/staff", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+def admin_create_staff(
+    payload: StaffAccountCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(admin_or_institution_admin),
+):
+    """
+    Onboards a Reviewer or Institution Admin account (no Researcher profile —
+    these roles are scoped to an institution via User.institution_id instead).
+    Emails a real password-reset link, same as /admin/researchers.
+
+    An Institution Admin may only create Reviewer accounts, and only for
+    their own institution. A System Admin can create either role, for any
+    institution.
+    """
+    if payload.role not in (UserRole.REVIEWER, UserRole.INSTITUTION_ADMIN):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="role must be 'reviewer' or 'institution_admin'")
+
+    institution_id = payload.institution_id
+    if current_user.role == UserRole.INSTITUTION_ADMIN:
+        if payload.role != UserRole.REVIEWER:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Institution Admins can only create Reviewer accounts")
+        if not current_user.effective_institution_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account isn't linked to an institution yet")
+        institution_id = current_user.effective_institution_id
+    elif institution_id and not db.get(Institution, institution_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="institution_id does not exist")
+
+    existing = db.query(User).filter(User.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A user with this email already exists")
+
+    user = User(
+        email=payload.email,
+        hashed_password=hash_password(secrets.token_urlsafe(32)),
+        role=payload.role,
+        institution_id=institution_id,
+        is_verified=True,
+    )
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not create account")
+    db.refresh(user)
+
+    reset_token = create_password_reset_token(str(user.id))
+    reset_link = f"{settings.API_BASE_URL}/auth/reset-password?token={reset_token}"
+    send_password_reset_email(user.email, reset_link)
+
+    log_action(db, current_user.id, "CREATE", "User", user.id, {"email": payload.email, "role": payload.role.value})
+    return user
+
+
 @router.get("/users", response_model=list[UserOut])
-def list_users(db: Session = Depends(get_db), _=Depends(system_admin_only)):
-    return db.query(User).order_by(User.created_at.desc()).all()
+def list_users(db: Session = Depends(get_db), current_user=Depends(admin_or_institution_admin)):
+    """
+    System Admin sees every account. Institution Admin sees only accounts
+    scoped to their own institution (researchers via their profile, plus
+    reviewer/institution_admin staff via User.institution_id) — never other
+    institutions' people, and never other System Admins.
+    """
+    query = db.query(User)
+    if current_user.role == UserRole.SYSTEM_ADMIN:
+        return query.order_by(User.created_at.desc()).all()
+
+    inst_id = current_user.effective_institution_id
+    if not inst_id:
+        return []
+    users = query.order_by(User.created_at.desc()).all()
+    return [
+        u for u in users
+        if u.role != UserRole.SYSTEM_ADMIN and u.effective_institution_id == inst_id
+    ]
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)
-def update_user(user_id: str, payload: UserAdminUpdate, db: Session = Depends(get_db), current_user=Depends(system_admin_only)):
+def update_user(user_id: str, payload: UserAdminUpdate, db: Session = Depends(get_db), current_user=Depends(admin_or_institution_admin)):
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
     changed = payload.model_dump(exclude_unset=True)
+
+    if current_user.role == UserRole.INSTITUTION_ADMIN:
+        # Institution Admins may only manage accounts in their own
+        # institution, may only switch someone between Researcher and
+        # Reviewer (never promote to Institution Admin / System Admin, and
+        # never move someone to a different institution), and may toggle
+        # whether the account is active.
+        if user.role not in (UserRole.RESEARCHER, UserRole.REVIEWER) or user.effective_institution_id != current_user.effective_institution_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only manage Researcher/Reviewer accounts in your own institution")
+        allowed_fields = {"is_active", "role"}
+        disallowed = set(changed.keys()) - allowed_fields
+        if disallowed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Institution Admins can only toggle active status or switch someone between Researcher and Reviewer")
+        if "role" in changed and changed["role"] not in (UserRole.RESEARCHER, UserRole.REVIEWER):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Institution Admins can only switch a user between Researcher and Reviewer")
+        if "institution_id" in changed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Institution Admins cannot reassign a user's institution")
+
+    # Capture the institution a role-change is happening FROM, before we
+    # touch anything — effective_institution_id's answer depends on the
+    # user's *current* role (Researchers read it off their Researcher
+    # profile; everyone else reads User.institution_id directly). Without
+    # this snapshot, flipping role -> reviewer for someone who only ever had
+    # a Researcher profile would silently strand them with no institution at
+    # all afterward, since User.institution_id was never populated for them.
+    prior_effective_institution_id = user.effective_institution_id
+
     for field, value in changed.items():
         setattr(user, field, value)
+
+    if changed.get("role") in (UserRole.REVIEWER, UserRole.INSTITUTION_ADMIN) and user.institution_id is None:
+        user.institution_id = prior_effective_institution_id
+
+    cancelled_reviews = 0
+    if user.role == UserRole.REVIEWER and changed.get("is_active") is False:
+        # Suspending a reviewer shouldn't leave publications silently stuck
+        # waiting on someone who can no longer act on them. Their undecided
+        # assignments are cancelled outright (not left pending, not silently
+        # reassigned to someone else who never agreed to take them) so an
+        # admin sees the gap and can assign a replacement deliberately.
+        pending = db.query(PublicationReview).filter(
+            PublicationReview.reviewer_id == user.id,
+            PublicationReview.status == ReviewStatus.PENDING,
+        ).all()
+        cancelled_reviews = len(pending)
+        for r in pending:
+            db.delete(r)
+
     db.commit()
     db.refresh(user)
-    log_action(db, current_user.id, "UPDATE", "User", user.id, {"fields": list(changed.keys())})
+    log_action(db, current_user.id, "UPDATE", "User", user.id, {
+        "fields": list(changed.keys()),
+        **({"cancelled_pending_reviews": cancelled_reviews} if cancelled_reviews else {}),
+    })
     return user
 
 
@@ -141,18 +273,30 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_user=Depend
 
 @router.put("/researchers/{researcher_id}", response_model=ResearcherOut)
 def admin_update_researcher(
-    researcher_id: str, payload: ResearcherUpdate, db: Session = Depends(get_db), current_user=Depends(system_admin_only)
+    researcher_id: str, payload: ResearcherUpdate, db: Session = Depends(get_db), current_user: User = Depends(admin_or_institution_admin)
 ):
     researcher = db.get(Researcher, researcher_id)
     if not researcher:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Researcher not found")
+
+    changed = payload.model_dump(exclude_unset=True)
+
+    if current_user.role == UserRole.INSTITUTION_ADMIN:
+        # Institution Admins may edit a researcher's profile details, but
+        # only for researchers already in their own institution, and they
+        # may not move a researcher to a different institution — that stays
+        # a System Admin action, same as reassigning any other account.
+        admin_inst = current_user.effective_institution_id
+        if not admin_inst or researcher.institution_id != admin_inst:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only edit researchers in your own institution")
+        if "institution_id" in changed and changed["institution_id"] != admin_inst:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Institution Admins cannot move a researcher to a different institution")
 
     if payload.orcid_id and payload.orcid_id != researcher.orcid_id:
         clash = db.query(Researcher).filter(Researcher.orcid_id == payload.orcid_id).first()
         if clash:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ORCID ID is already in use")
 
-    changed = payload.model_dump(exclude_unset=True)
     for field, value in changed.items():
         setattr(researcher, field, value)
     try:
@@ -173,16 +317,31 @@ def list_audit_logs(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    _=Depends(system_admin_only),
+    current_user: User = Depends(admin_or_institution_admin),
 ):
-    logs = (
-        db.query(AuditLog)
-        .order_by(AuditLog.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-    total = db.query(AuditLog).count()
+    """
+    System Admin sees every action on the platform. Institution Admin sees
+    only actions performed BY people who belong to their own institution
+    (themselves, their researchers, and their reviewers) — a scoped audit
+    trail of "what my institution's accounts have been doing", not the
+    whole platform's activity.
+    """
+    query = db.query(AuditLog)
+
+    if current_user.role == UserRole.INSTITUTION_ADMIN:
+        inst_id = current_user.effective_institution_id
+        if not inst_id:
+            return {"total": 0, "logs": []}
+        institution_user_ids = [
+            u.id for u in db.query(User).all()
+            if u.role != UserRole.SYSTEM_ADMIN and u.effective_institution_id == inst_id
+        ]
+        if not institution_user_ids:
+            return {"total": 0, "logs": []}
+        query = query.filter(AuditLog.user_id.in_(institution_user_ids))
+
+    total = query.count()
+    logs = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit).all()
     results = []
     for log in logs:
         user = db.get(User, log.user_id) if log.user_id else None

@@ -16,6 +16,7 @@ ACCOUNTS = [
     ("admin@researchsphere.dev", UserRole.SYSTEM_ADMIN, "System Administrator"),
     ("institution.admin@researchsphere.dev", UserRole.INSTITUTION_ADMIN, "Institution Admin Demo"),
     ("reviewer@researchsphere.dev", UserRole.REVIEWER, "Reviewer Demo"),
+    ("reviewer2@researchsphere.dev", UserRole.REVIEWER, "Second Reviewer Demo"),
     ("researcher@researchsphere.dev", UserRole.RESEARCHER, "Researcher Demo"),
 ]
 
@@ -23,6 +24,9 @@ ACCOUNTS = [
 def run():
     db = SessionLocal()
     try:
+        # institution_admin/reviewer demo accounts are all pinned to the same
+        # institution, so the demo login can actually assign the demo
+        # reviewers to publications from that institution end-to-end.
         institution = db.query(Institution).first()
         for email, role, name in ACCOUNTS:
             existing = db.query(User).filter(User.email == email).first()
@@ -35,6 +39,7 @@ def run():
                 role=role,
                 is_verified=True,
                 is_active=True,
+                institution_id=institution.id if (institution and role in (UserRole.INSTITUTION_ADMIN, UserRole.REVIEWER)) else None,
             )
             db.add(user)
             db.flush()

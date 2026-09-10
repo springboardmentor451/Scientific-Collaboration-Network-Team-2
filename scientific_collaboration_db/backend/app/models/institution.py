@@ -25,6 +25,9 @@ class Institution(Base):
 
     researchers: Mapped[list["Researcher"]] = relationship(back_populates="institution")
     projects: Mapped[list["Project"]] = relationship(back_populates="lead_institution")
+    # Staff accounts (institution_admin / reviewer) attached directly to this
+    # institution via User.institution_id, rather than through a Researcher profile.
+    staff: Mapped[list["User"]] = relationship(back_populates="institution", foreign_keys="User.institution_id")
 
     def __repr__(self) -> str:
         return f"<Institution {self.name}>"

@@ -62,6 +62,9 @@ class Publication(Base):
         back_populates="publication", cascade="all, delete-orphan", order_by="PublicationAuthor.author_order"
     )
     conference_participations: Mapped[list["ConferenceParticipation"]] = relationship(back_populates="publication")
+    reviews: Mapped[list["PublicationReview"]] = relationship(
+        back_populates="publication", cascade="all, delete-orphan", order_by="PublicationReview.assigned_at.desc()"
+    )
 
     citations_made: Mapped[list["Citation"]] = relationship(
         back_populates="citing_publication",
@@ -90,6 +93,19 @@ class Publication(Base):
         # field silently falls back to its Pydantic default of [] for
         # every publication, since "author_names" isn't a real column.
         return [link.researcher.full_name for link in self.authors if link.researcher]
+
+    @property
+    def institution_name(self) -> str | None:
+        # Same "which institution owns this publication" rule used by the
+        # reviews router (corresponding author, falling back to the first
+        # author) — surfaced here too so the UI can show it upfront instead
+        # of an Institution Admin only finding out via a 403 after clicking
+        # "Assign".
+        corresponding = next((a for a in self.authors if a.is_corresponding), None)
+        link = corresponding or (self.authors[0] if self.authors else None)
+        if link and link.researcher and link.researcher.institution:
+            return link.researcher.institution.name
+        return None
 
 
 class PublicationAuthor(Base):

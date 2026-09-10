@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.core.config import get_settings
 from app.core.email import send_otp_email, send_password_reset_email, send_verification_email
+from app.core.rate_limit import check_rate_limit, record_attempt
 from app.core.security import (
     create_access_token,
     create_email_verification_token,
@@ -136,6 +137,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     Swagger's 'Authorize' button work out of the box.
     """
     user = db.query(User).filter(User.email == form_data.username).first()
+    check_rate_limit(f"login:{form_data.username.lower()}", max_attempts=8, window_seconds=900)
+    record_attempt(f"login:{form_data.username.lower()}")
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -179,6 +182,8 @@ def login_json(payload: UserLogin, db: Session = Depends(get_db)):
     console/log instead of emailed — see app/core/email.py.)
     """
     user = db.query(User).filter(User.email == payload.email).first()
+    check_rate_limit(f"login:{payload.email.lower()}", max_attempts=8, window_seconds=900)
+    record_attempt(f"login:{payload.email.lower()}")
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
     if not user.is_active:
@@ -196,6 +201,8 @@ def login_json(payload: UserLogin, db: Session = Depends(get_db)):
 @router.post("/resend-login-otp")
 def resend_login_otp(payload: ResendOtp, db: Session = Depends(get_db)):
     """Sends a fresh code, invalidating any earlier unused one for this account."""
+    check_rate_limit(f"resend-otp:{payload.email.lower()}", max_attempts=5, window_seconds=900)
+    record_attempt(f"resend-otp:{payload.email.lower()}")
     user = db.query(User).filter(User.email == payload.email).first()
     if user and user.is_active and user.is_verified:
         _issue_login_otp(db, user)
@@ -206,6 +213,8 @@ def resend_login_otp(payload: ResendOtp, db: Session = Depends(get_db)):
 @router.post("/verify-login-otp", response_model=Token)
 def verify_login_otp(payload: VerifyOtp, db: Session = Depends(get_db)):
     """Step 2 of 2. Exchanges a valid, unexpired, unused code for a real access token."""
+    check_rate_limit(f"verify-otp:{payload.email.lower()}", max_attempts=8, window_seconds=900)
+    record_attempt(f"verify-otp:{payload.email.lower()}")
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or code")

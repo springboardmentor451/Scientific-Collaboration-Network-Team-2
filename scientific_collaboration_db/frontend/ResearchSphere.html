@@ -1192,6 +1192,9 @@ let DB = {
   pendingReviews: [],
   users: [],
   myParticipations: [],
+  reviewers: [],         // REVIEWER-role accounts an admin/institution_admin can assign (GET /reviews/reviewers)
+  reviewAssignments: [], // all review assignments visible to admin/institution_admin (GET /reviews)
+  myReviews: [],         // the logged-in reviewer's own queue + history (GET /reviews/mine)
 };
 
 const STATUS_LABEL = {draft:'Draft', submitted:'Submitted', published:'Published', archived:'Archived'};
@@ -1200,9 +1203,9 @@ const STATUS_LABEL = {draft:'Draft', submitted:'Submitted', published:'Published
    BACKEND API INTEGRATION
    ============================================================
    Change API_BASE_URL if your FastAPI server runs somewhere other
-   than http://localhost:8000 (e.g. a deployed URL).
+   than http://127.0.0.1:8001 (e.g. a deployed URL).
    ============================================================ */
-const API_BASE_URL = 'http://localhost:8001';
+const API_BASE_URL = 'http://127.0.0.1:8001';
 
 // Paste the OAuth 2.0 Web Client ID from https://console.cloud.google.com/apis/credentials
 // here to enable the "Continue with Google" button. Leave blank to hide it.
@@ -1304,7 +1307,7 @@ function mapPublication(p, researcherLookupByName) {
     issue: p.issue || '',
     pages: p.pages || '',
     doi: p.doi || null,
-    inst: firstAuthorResearcher ? firstAuthorResearcher.inst : '—',
+    inst: p.institution_name || (firstAuthorResearcher ? firstAuthorResearcher.inst : '—'),
     dept: firstAuthorResearcher ? firstAuthorResearcher.dept : '—',
   };
 }
@@ -1405,17 +1408,13 @@ async function loadAllData() {
       year: p.date ? Number(p.date.slice(0,4)) : null,
     }));
 
-  // Pending reviews: publications currently in "submitted" status.
-  DB.pendingReviews = DB.publications
-    .filter(p => p.status === 'submitted')
-    .map(p => ({id: p.id, title: p.title, author: (p.authors[0] || '—'), submitted: p.date}));
-
-  // Admin-only data (requires system_admin role + token)
-  if (currentUser && currentUser.role === 'system_admin') {
+  // Admin-only data (requires system_admin OR institution_admin role + token)
+  if (currentUser && (currentUser.role === 'system_admin' || currentUser.role === 'institution_admin')) {
     try {
-      const [users, auditResp] = await Promise.all([
+      const [users, reviewers, reviewAssignments] = await Promise.all([
         apiFetch('/admin/users'),
-        apiFetch('/admin/audit-logs?limit=100'),
+        apiFetch('/reviews/reviewers'),
+        apiFetch('/reviews'),
       ]);
       DB.users = users.map(u => ({
         id: u.id,
@@ -1425,33 +1424,86 @@ async function loadAllData() {
         rawRole: u.role,
         isActive: u.is_active,
         status: u.is_active ? 'Active' : 'Suspended',
+        // Which institution actually "counts" depends on role: a Researcher's
+        // institution lives on their researcher profile, but once someone is
+        // promoted to institution_admin/reviewer, User.institution_id is the
+        // live source of truth (their old researcher profile, if any, may
+        // still exist but is stale and should NOT override this).
+        institutionId: u.role === 'researcher'
+          ? (u.researcher && u.researcher.institution ? u.researcher.institution.id : null)
+          : (u.institution ? u.institution.id : null),
+        institutionName: u.role === 'researcher'
+          ? (u.researcher && u.researcher.institution ? u.researcher.institution.name : null)
+          : (u.institution ? u.institution.name : null),
       }));
-      DB.auditLogs = auditResp.logs.map(l => ({
-        id: l.id,
-        user: l.user_email || 'system',
-        action: `${l.action} ${l.entity_type}${l.entity_id ? ' ' + String(l.entity_id).slice(0,8) : ''}`,
-        time: l.created_at ? l.created_at.replace('T',' ').slice(0,16) : '',
-        level: 'info',
+      DB.reviewers = reviewers.map(r => ({
+        id: r.id, email: r.email, name: r.full_name || r.email.split('@')[0],
+        institutionId: r.institution_id, institutionName: r.institution_name, isActive: r.is_active,
       }));
+      DB.reviewAssignments = reviewAssignments.map(mapReviewAssignment);
     } catch (e) {
-      DB.users = [];
+      DB.reviewers = [];
+      DB.reviewAssignments = [];
+    }
+    if (currentUser.role === 'system_admin' || currentUser.role === 'institution_admin') {
+      try {
+        const auditResp = await apiFetch('/admin/audit-logs?limit=100');
+        DB.auditLogs = auditResp.logs.map(l => ({
+          id: l.id,
+          user: l.user_email || 'system',
+          action: `${l.action} ${l.entity_type}${l.entity_id ? ' ' + String(l.entity_id).slice(0,8) : ''}`,
+          time: l.created_at ? l.created_at.replace('T',' ').slice(0,16) : '',
+          level: 'info',
+        }));
+      } catch (e) { DB.auditLogs = []; }
+    } else {
       DB.auditLogs = [];
     }
   } else {
     DB.users = [];
     DB.auditLogs = [];
+    DB.reviewers = [];
+    DB.reviewAssignments = [];
   }
+
+  // Reviewer's own queue — real assignments, not a derived guess.
+  if (currentUser && currentUser.role === 'reviewer') {
+    try {
+      DB.myReviews = (await apiFetch('/reviews/mine')).map(mapReviewAssignment);
+    } catch (e) { DB.myReviews = []; }
+  } else {
+    DB.myReviews = [];
+  }
+  DB.pendingReviews = DB.myReviews.filter(r => r.status === 'pending');
 
   // "Current researcher" identity used to scope the Analysis Dashboard.
   if (currentUser && currentUser.researcher) {
     MY_LASTNAME = lastName(currentUser.researcher.full_name);
     MY_INSTITUTION = currentUser.researcher.institution ? currentUser.researcher.institution.name : (institutionsCache[0] ? institutionsCache[0].name : '');
   } else {
-    // Institution admins aren't linked to a specific institution in the
-    // current backend schema, so we fall back to the first institution.
     MY_LASTNAME = '';
-    MY_INSTITUTION = institutionsCache[0] ? institutionsCache[0].name : '';
+    // Institution Admins and Reviewers are linked to a real institution via
+    // currentUser.institution (User.institution_id on the backend) now.
+    MY_INSTITUTION = currentUser && currentUser.institution ? currentUser.institution.name : (institutionsCache[0] ? institutionsCache[0].name : '');
   }
+}
+
+function mapReviewAssignment(r){
+  return {
+    id: r.id,
+    pubId: r.publication_id,
+    title: r.publication_title || '(publication removed)',
+    pubStatus: r.publication_status,
+    reviewerId: r.reviewer_id,
+    reviewerName: r.reviewer_name || r.reviewer_email,
+    reviewerEmail: r.reviewer_email,
+    assignedByEmail: r.assigned_by_email,
+    status: r.status,
+    note: r.note,
+    comments: r.comments,
+    assignedAt: r.assigned_at ? r.assigned_at.replace('T',' ').slice(0,16) : '',
+    decidedAt: r.decided_at ? r.decided_at.replace('T',' ').slice(0,16) : null,
+  };
 }
 
 /* ============================================================
@@ -1812,7 +1864,7 @@ function logout(){
   authToken = null;
   currentUser = null;
   try{ localStorage.removeItem('rs_auth_token'); }catch(e){}
-  DB = {researchers:[], publications:[], projects:[], conferences:[], citations:[], citationEdges:[], auditLogs:[], pendingReviews:[], users:[], myParticipations:[]};
+  DB = {researchers:[], publications:[], projects:[], conferences:[], citations:[], citationEdges:[], auditLogs:[], pendingReviews:[], users:[], myParticipations:[], reviewers:[], reviewAssignments:[], myReviews:[]};
   document.getElementById('app-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('auth-form').reset();
@@ -1836,8 +1888,8 @@ const PAGE_ACCESS = {
   review:         ['reviewer'],
   institution:    ['institution_admin','system_admin'],
   analysis:       ['researcher','institution_admin','system_admin'],
-  users:          ['system_admin'],
-  audit:          ['system_admin'],
+  users:          ['system_admin','institution_admin'],
+  audit:          ['system_admin','institution_admin'],
   profile:        ['researcher','reviewer','institution_admin','system_admin'],
 };
 
@@ -2036,8 +2088,8 @@ function renderDashboard(){
         <div class="card-head"><h3>${role==='reviewer' ? 'Review queue' : 'Upcoming conferences'}</h3></div>
         ${role==='reviewer' ? (DB.pendingReviews.length ? DB.pendingReviews.map(r => `
           <div class="list-row">
-            <div class="row-ic" style="background:var(--coral)">${(r.author||'?')[0]}</div>
-            <div><div class="row-title">${r.title}</div><div class="row-sub">Submitted by ${r.author} · ${r.submitted||'n/d'}</div></div>
+            <div class="row-ic" style="background:var(--coral)">${(r.title||'?')[0]}</div>
+            <div><div class="row-title">${r.title}</div><div class="row-sub">Assigned ${r.assignedAt||'n/d'}${r.note ? ' · ' + r.note : ''}</div></div>
           </div>
         `).join('') : `<div class="empty-state" style="padding:20px 0;"><div class="ic">✓</div>Nothing pending review.</div>`)
         : (DB.conferences.length ? DB.conferences.slice(0,4).map(c => `
@@ -2238,9 +2290,11 @@ function openModalAddResearcher(){
       ` : `
       <div class="field"><label>Temporary password</label><input type="text" id="newres-password" class="mono" placeholder="At least 8 chars, 1 letter, 1 number" value="${generateTempPassword()}"></div>
       `}
-      <div class="field"><label>Institution</label>
+      ${session && session.role === 'institution_admin'
+        ? `<div class="row-sub">This researcher will be added to ${MY_INSTITUTION || 'your institution'}.</div>`
+        : `<div class="field"><label>Institution</label>
         <select id="newres-institution"><option value="">— none —</option>${institutionsCache.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}</select>
-      </div>
+      </div>`}
       <div id="newres-error" style="color:var(--red); font-size:13px;"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
@@ -2264,7 +2318,8 @@ async function submitNewResearcher(isAdmin){
   if(!name){ errEl.textContent = 'Full name is required.'; return; }
   if(!/^\S+@\S+\.\S+$/.test(email)){ errEl.textContent = 'Enter a valid email address.'; return; }
 
-  const institutionId = document.getElementById('newres-institution').value || null;
+  const institutionEl = document.getElementById('newres-institution');
+  const institutionId = institutionEl ? (institutionEl.value || null) : null; // institution_admin: server forces their own institution regardless
 
   if(isAdmin){
     errEl.textContent = '';
@@ -2314,6 +2369,8 @@ async function submitNewResearcher(isAdmin){
 let pubFilter = 'all';
 function renderPublications(){
   const filtered = pubFilter==='all' ? DB.publications : DB.publications.filter(p=>p.status===pubFilter);
+  const canAssignReviews = session && (session.role === 'system_admin' || session.role === 'institution_admin');
+  const isInstitutionAdmin = session && session.role === 'institution_admin';
   return `
     <div class="page-head">
       <div><div class="page-eyebrow">Publication repository</div><h2>Publications</h2><p>Journal papers, conference papers, books, patents and reports.</p></div>
@@ -2326,24 +2383,118 @@ function renderPublications(){
     </div>
     <div class="clay card table-wrap">
       <table>
-        <thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Authors</th><th>Date</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Authors</th><th>Date</th><th>Status</th>${canAssignReviews ? '<th>Review</th>' : ''}<th></th></tr></thead>
         <tbody>
           ${filtered.map(p => `
             <tr>
               <td class="mono">${p.id}</td>
               <td style="max-width:280px;">${p.title}</td>
               <td>${p.type}</td>
-              <td>${p.authors.join(', ')}</td>
+              <td>${p.authors.join(', ')}${canAssignReviews ? `<div class="row-sub">${p.inst && p.inst !== '—' ? p.inst : 'No linked institution'}${isInstitutionAdmin && p.inst && p.inst !== '—' && p.inst !== MY_INSTITUTION ? ' · not your institution' : ''}</div>` : ''}</td>
               <td>${p.date}</td>
               <td><span class="badge badge-${p.status}">${STATUS_LABEL[p.status]}</span></td>
+              ${canAssignReviews ? `<td>${publicationReviewCell(p.id)}</td>` : ''}
               <td><button class="btn-icon" style="width:32px;height:32px;" onclick="viewPublicationDetail('${p.id}')" title="View details">↗</button></td>
             </tr>
           `).join('')}
-          ${filtered.length===0 ? `<tr><td colspan="7"><div class="empty-state"><div class="ic">▤</div>No publications in this status yet.</div></td></tr>` : ''}
+          ${filtered.length===0 ? `<tr><td colspan="8"><div class="empty-state"><div class="ic">▤</div>No publications in this status yet.</div></td></tr>` : ''}
         </tbody>
       </table>
     </div>
   `;
+}
+
+function publicationReviewCell(pubId){
+  const pub = DB.publications.find(p => p.id === pubId);
+  const isInstitutionAdmin = session && session.role === 'institution_admin';
+  const outOfScope = isInstitutionAdmin && pub && pub.inst && pub.inst !== '—' && pub.inst !== MY_INSTITUTION;
+  const assignments = (DB.reviewAssignments || []).filter(r => r.pubId === pubId);
+  const pending = assignments.filter(r => r.status === 'pending');
+  const badges = assignments.slice(0,2).map(r => `<span class="badge ${REVIEW_STATUS_BADGE[r.status]}" title="${r.reviewerName}">${REVIEW_STATUS_LABEL[r.status]}</span>`).join(' ');
+  if(outOfScope){
+    return `
+      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        ${assignments.length ? badges : `<span class="row-sub">Not assigned</span>`}
+        <button class="btn btn-ghost btn-sm" style="padding:4px 8px; font-size:12px; opacity:0.5; cursor:not-allowed;" disabled title="This publication belongs to ${pub.inst}, not your institution (${MY_INSTITUTION}) — only its own Institution Admin or a System Admin can assign a reviewer to it.">Assign</button>
+      </div>
+    `;
+  }
+  return `
+    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+      ${assignments.length ? badges : `<span class="row-sub">Not assigned</span>`}
+      <button class="btn btn-ghost btn-sm" style="padding:4px 8px; font-size:12px;" onclick="openModalAssignReviewer('${pubId}')">${assignments.length ? '+' : 'Assign'}</button>
+    </div>
+  `;
+}
+
+function openModalAssignReviewer(pubId){
+  const pub = DB.publications.find(p => p.id === pubId);
+  if(!pub) return;
+  const reviewers = DB.reviewers || [];
+  const assignments = (DB.reviewAssignments || []).filter(r => r.pubId === pubId);
+  openModal(`
+    <div class="modal-head"><h3>Assign a reviewer</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="row-sub">${pub.title}</div>
+      ${reviewers.length === 0
+        ? `<div class="empty-state" style="padding:14px 0;"><div class="ic">🧾</div>No reviewer accounts available yet. Use "+ Add reviewer" on the Institution page to create one first.</div>`
+        : `
+        <div class="field"><label>Reviewer</label>
+          <select id="assign-reviewer-id">${reviewers.map(r=>`<option value="${r.id}">${r.name} (${r.email})</option>`).join('')}</select>
+        </div>
+        <div class="field"><label>Note for the reviewer (optional)</label><input type="text" id="assign-reviewer-note" placeholder="e.g. focus on methodology section"></div>
+      `}
+      <div id="assign-reviewer-error" style="color:var(--red); font-size:13px;"></div>
+      ${reviewers.length ? `
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" onclick="submitAssignReviewer('${pubId}')">Assign</button>
+      </div>` : `<div class="modal-actions"><button class="btn btn-ghost btn-block" onclick="closeModal()">Close</button></div>`}
+
+      ${assignments.length ? `
+        <hr style="border:none; border-top:1px solid var(--clay-lo); margin:10px 0;">
+        <b style="font-size:12px; color:var(--ink-soft); text-transform:uppercase;">Existing assignments</b>
+        ${assignments.map(a => `
+          <div class="list-row">
+            <div class="row-ic" style="background:var(--indigo)">${(a.reviewerName||'?')[0]}</div>
+            <div><div class="row-title">${a.reviewerName}</div><div class="row-sub">${REVIEW_STATUS_LABEL[a.status]}${a.comments ? ' · "' + a.comments + '"' : ''}</div></div>
+            ${a.status==='pending' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="cancelReviewAssignment('${a.id}')">Cancel</button>` : ''}
+          </div>
+        `).join('')}
+      ` : ''}
+    </div>
+  `);
+}
+
+async function submitAssignReviewer(pubId){
+  const errEl = document.getElementById('assign-reviewer-error');
+  const reviewerId = document.getElementById('assign-reviewer-id').value;
+  const note = document.getElementById('assign-reviewer-note').value.trim();
+  try{
+    await apiFetch('/reviews', {
+      method: 'POST',
+      body: JSON.stringify({ publication_id: pubId, reviewer_id: reviewerId, note: note || null }),
+    });
+    closeModal();
+    showToast('Reviewer assigned.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
+}
+
+async function cancelReviewAssignment(reviewId){
+  if(!confirm('Cancel this pending review assignment?')) return;
+  try{
+    await apiFetch(`/reviews/${reviewId}`, { method: 'DELETE' });
+    showToast('Review assignment cancelled.', 'success');
+    closeModal();
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    showToast('Could not cancel: ' + err.message, 'error');
+  }
 }
 
 function openForgotPassword(){
@@ -3258,6 +3409,9 @@ async function submitChangePassword(){
 }
 
 function renderProfile(){
+  const myInstitution = (currentUser && currentUser.researcher && currentUser.researcher.institution)
+    ? currentUser.researcher.institution.name
+    : (currentUser && currentUser.institution ? currentUser.institution.name : null);
   return `
     <div class="page-head">
       <div><div class="page-eyebrow">Your account</div><h2>Profile</h2><p>Manage your researcher profile and preferences.</p></div>
@@ -3271,6 +3425,7 @@ function renderProfile(){
           <div>
             <div class="p-name" style="font-size:16px;">${session.name}</div>
             <div class="p-dept">${ROLE_LABELS[session.role]} · ${session.email}</div>
+            <div class="p-dept">${myInstitution ? myInstitution : (session.role === 'system_admin' ? 'Platform-wide access — not tied to one institution' : 'No institution set yet — ask a System Admin to assign one')}</div>
             ${currentUser && currentUser.researcher ? `
               <div style="margin-top:6px;">
                 <input type="file" id="avatar-file-input" accept=".jpg,.jpeg,.png,.webp" style="font-size:12px; max-width:220px;">
@@ -3333,24 +3488,89 @@ function renderProfile(){
 /* ============================================================
    PAGE: REVIEW QUEUE (reviewer)
    ============================================================ */
+const REVIEW_STATUS_LABEL = {pending:'Pending', approved:'Approved', changes_requested:'Changes requested', rejected:'Rejected'};
+const REVIEW_STATUS_BADGE = {pending:'badge-submitted', approved:'badge-published', changes_requested:'badge-draft', rejected:'badge-archived'};
+
 function renderReview(){
+  const pending = DB.myReviews.filter(r => r.status === 'pending');
+  const decided = DB.myReviews.filter(r => r.status !== 'pending');
   return `
     <div class="page-head">
-      <div><div class="page-eyebrow">Peer review</div><h2>Review queue</h2><p>Submissions awaiting your assessment.</p></div>
+      <div><div class="page-eyebrow">Peer review</div><h2>Review queue</h2><p>Submissions assigned to you by an Institution Admin or System Admin.</p></div>
     </div>
     <div class="clay card">
-      ${DB.pendingReviews.map(r => `
+      <div class="card-head"><h3>Awaiting your review (${pending.length})</h3></div>
+      ${pending.length === 0 ? `<div class="empty-state" style="padding:20px 0;"><div class="ic">✓</div>Nothing pending review right now.</div>` : pending.map(r => `
         <div class="list-row">
-          <div class="row-ic" style="background:var(--indigo)">${r.author[0]}</div>
-          <div><div class="row-title">${r.title}</div><div class="row-sub">Submitted by ${r.author} on ${r.submitted}</div></div>
+          <div class="row-ic" style="background:var(--indigo)">${(r.title||'?')[0]}</div>
+          <div>
+            <div class="row-title">${r.title}</div>
+            <div class="row-sub">Assigned ${r.assignedAt} by ${r.assignedByEmail||'an admin'}${r.note ? ' · "' + r.note + '"' : ''}</div>
+          </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-ghost btn-sm" onclick="showToast('Marked as needs revision.', 'success')">Request changes</button>
-            <button class="btn btn-sm" onclick="showToast('Review approved.', 'success')">Approve</button>
+            <button class="btn-icon" style="width:32px;height:32px;" onclick="viewPublicationDetail('${r.pubId}')" title="View publication">↗</button>
+            <button class="btn btn-ghost btn-sm" onclick="openModalReviewDecision('${r.id}','changes_requested')">Request changes</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="openModalReviewDecision('${r.id}','rejected')">Reject</button>
+            <button class="btn btn-sm" onclick="openModalReviewDecision('${r.id}','approved')">Approve</button>
           </div>
         </div>
       `).join('')}
     </div>
+    <div class="clay card" style="margin-top:16px;">
+      <div class="card-head"><h3>Review history (${decided.length})</h3></div>
+      ${decided.length === 0 ? `<div class="empty-state" style="padding:20px 0;"><div class="ic">▤</div>You haven't decided on any reviews yet.</div>` : decided.map(r => `
+        <div class="list-row">
+          <div class="row-ic" style="background:var(--ink-soft)">${(r.title||'?')[0]}</div>
+          <div>
+            <div class="row-title">${r.title}</div>
+            <div class="row-sub">Decided ${r.decidedAt||''}${r.comments ? ' · "' + r.comments + '"' : ''}</div>
+          </div>
+          <span class="badge ${REVIEW_STATUS_BADGE[r.status]}">${REVIEW_STATUS_LABEL[r.status]||r.status}</span>
+        </div>
+      `).join('')}
+    </div>
   `;
+}
+
+function openModalReviewDecision(reviewId, decisionStatus){
+  const r = DB.myReviews.find(x => x.id === reviewId);
+  if(!r) return;
+  const verbs = {approved:'Approve', changes_requested:'Request changes on', rejected:'Reject'};
+  openModal(`
+    <div class="modal-head"><h3>${verbs[decisionStatus]} "${r.title}"</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="field"><label>Comments ${decisionStatus==='approved' ? '(optional)' : 'for the author'}</label>
+        <textarea id="review-decision-comments" rows="4" placeholder="What should the author know?" style="resize:vertical; font-family:inherit; font-size:14px; padding:10px 12px; border-radius:12px; border:none; background:var(--clay); box-shadow:var(--shadow-in);"></textarea>
+      </div>
+      <div id="review-decision-error" style="color:var(--red); font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" onclick="submitReviewDecision('${reviewId}','${decisionStatus}')">${verbs[decisionStatus]}</button>
+      </div>
+    </div>
+  `);
+}
+
+async function submitReviewDecision(reviewId, decisionStatus){
+  const errEl = document.getElementById('review-decision-error');
+  const comments = document.getElementById('review-decision-comments').value.trim();
+  if(decisionStatus !== 'approved' && !comments){
+    errEl.textContent = 'Please leave a comment explaining your decision.';
+    return;
+  }
+  errEl.textContent = '';
+  try{
+    await apiFetch(`/reviews/${reviewId}/decision`, {
+      method: 'POST',
+      body: JSON.stringify({ status: decisionStatus, comments: comments || null }),
+    });
+    closeModal();
+    showToast(`Review ${REVIEW_STATUS_LABEL[decisionStatus].toLowerCase()}.`, 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
 }
 
 /* ============================================================
@@ -3358,7 +3578,17 @@ function renderReview(){
    ============================================================ */
 function renderInstitution(){
   const isSystemAdmin = session && session.role === 'system_admin';
-  const stats = institutionsCache.map(inst => {
+  const isInstitutionAdmin = session && session.role === 'institution_admin';
+  const myInstitutionId = currentUser && currentUser.institution ? currentUser.institution.id : null;
+
+  // Institution Admins only ever manage the one institution they're
+  // actually assigned to (users.institution_id on the backend) — not
+  // every institution on the platform. System Admin still sees everything.
+  const visibleInstitutions = isInstitutionAdmin
+    ? institutionsCache.filter(i => i.id === myInstitutionId)
+    : institutionsCache;
+
+  const stats = visibleInstitutions.map(inst => {
     const researchers = DB.researchers.filter(r => r.inst === inst.name);
     const pubs = DB.publications.filter(p => p.inst === inst.name);
     const activeProjects = DB.projects.filter(p => p.inst === inst.name && p.status === 'active');
@@ -3367,10 +3597,11 @@ function renderInstitution(){
 
   return `
     <div class="page-head">
-      <div><div class="page-eyebrow">Institution management</div><h2>Institutions</h2><p>Every institution on the platform, with real researcher, publication, and project counts pulled live from the database.</p></div>
-      <button class="btn" onclick="openModalAddInstitution()">+ Add institution</button>
+      <div><div class="page-eyebrow">Institution management</div><h2>${isInstitutionAdmin ? 'Your institution' : 'Institutions'}</h2><p>${isInstitutionAdmin ? 'Real researcher, publication, and project counts for your institution, pulled live from the database.' : 'Every institution on the platform, with real researcher, publication, and project counts pulled live from the database.'}</p></div>
+      ${isSystemAdmin ? `<button class="btn" onclick="openModalAddInstitution()">+ Add institution</button>` : ''}
     </div>
-    ${stats.length === 0 ? `<div class="empty-state"><div class="ic">⌂</div>No institutions yet. Use "+ Add institution" to create the first one.</div>` : ''}
+    ${isInstitutionAdmin && stats.length === 0 ? `<div class="empty-state"><div class="ic">⌂</div>Your account isn't assigned to an institution yet — ask a System Admin to set one for you in User Management.</div>` : ''}
+    ${!isInstitutionAdmin && stats.length === 0 ? `<div class="empty-state"><div class="ic">⌂</div>No institutions yet. Use "+ Add institution" to create the first one.</div>` : ''}
     <div class="grid grid-3">
       ${stats.map(s => `
         <div class="clay card">
@@ -3391,7 +3622,103 @@ function renderInstitution(){
         </div>
       `).join('')}
     </div>
+    ${renderReviewerManagementSection(isInstitutionAdmin)}
   `;
+}
+
+function renderReviewerManagementSection(isInstitutionAdmin){
+  const reviewers = DB.reviewers || [];
+  const assignments = DB.reviewAssignments || [];
+  return `
+    <div class="grid grid-2" style="margin-top:16px; align-items:start;">
+      <div class="clay card">
+        <div class="card-head">
+          <div><h3>Reviewers${isInstitutionAdmin ? ' at your institution' : ''}</h3><div class="card-sub">${reviewers.length} reviewer account${reviewers.length===1?'':'s'} available to assign</div></div>
+          <button class="btn btn-sm" onclick="openModalAddReviewer()">+ Add reviewer</button>
+        </div>
+        ${isInstitutionAdmin ? `<div class="row-sub" style="margin-bottom:10px;">"+ Add reviewer" invites someone brand new. Already have a researcher at your institution in mind? Switch their role from <a href="#" onclick="goPage('users');return false;">User Management</a> instead — no need to create a second account for them.</div>` : ''}
+        ${reviewers.length === 0 ? `<div class="empty-state" style="padding:20px 0;"><div class="ic">🧾</div>No reviewers yet. Add one to start assigning publications for review.</div>` :
+          reviewers.map(r => `
+            <div class="list-row">
+              <div class="row-ic" style="background:var(--teal)">${(r.name||'?')[0]}</div>
+              <div><div class="row-title">${r.name}</div><div class="row-sub">${r.email}${r.institutionName ? ' · ' + r.institutionName : ''}</div></div>
+              <span class="badge ${r.isActive ? 'badge-published' : 'badge-archived'}">${r.isActive ? 'Active' : 'Suspended'}</span>
+              <button class="btn-icon" style="width:28px;height:28px; margin-left:6px;" title="${r.isActive ? 'Suspend' : 'Reactivate'}" onclick="toggleReviewerActive('${r.id}', ${r.isActive})">${r.isActive ? '🚫' : '✓'}</button>
+            </div>
+          `).join('')}
+      </div>
+
+      <div class="clay card">
+        <div class="card-head"><div><h3>Review assignments</h3><div class="card-sub">${assignments.length} total</div></div></div>
+        ${assignments.length === 0 ? `<div class="empty-state" style="padding:20px 0;"><div class="ic">▤</div>No reviews assigned yet — assign one from the Publications page.</div>` :
+          assignments.slice(0,12).map(a => `
+            <div class="list-row">
+              <div class="row-ic" style="background:var(--indigo)">${(a.title||'?')[0]}</div>
+              <div><div class="row-title">${a.title}</div><div class="row-sub">${a.reviewerName} · ${a.assignedAt}</div></div>
+              <span class="badge ${REVIEW_STATUS_BADGE[a.status]}">${REVIEW_STATUS_LABEL[a.status]}</span>
+              ${a.status==='pending' ? `<button class="btn-icon" style="width:28px;height:28px; margin-left:6px;" title="Cancel" onclick="cancelReviewAssignment('${a.id}')">✕</button>` : ''}
+            </div>
+          `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function openModalAddReviewer(){
+  const isSystemAdmin = session && session.role === 'system_admin';
+  openModal(`
+    <div class="modal-head"><h3>Add reviewer</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="field-grid">
+      <div class="row-sub">This creates a real account and emails the new reviewer a password-reset link so they set their own password.</div>
+      <div class="field"><label>Full name</label><input type="text" id="newrev-name" placeholder="Dr. Jane Doe"></div>
+      <div class="field"><label>Email</label><input type="text" id="newrev-email" placeholder="jane.doe@institution.edu"></div>
+      ${isSystemAdmin ? `
+      <div class="field"><label>Institution</label>
+        <select id="newrev-institution"><option value="">— none —</option>${institutionsCache.map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}</select>
+      </div>
+      ` : `<div class="row-sub">This reviewer will be added to ${MY_INSTITUTION || 'your institution'}.</div>`}
+      <div id="newrev-error" style="color:var(--red); font-size:13px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-block" onclick="submitNewReviewer(${isSystemAdmin})">Create account</button>
+      </div>
+    </div>
+  `);
+}
+
+async function toggleReviewerActive(reviewerId, currentlyActive){
+  const nextActive = !currentlyActive;
+  if(!nextActive && !confirm('Suspend this reviewer? They will keep any reviews already assigned but won\'t be able to log in until reactivated.')) return;
+  try{
+    await apiFetch(`/admin/users/${reviewerId}`, { method: 'PATCH', body: JSON.stringify({ is_active: nextActive }) });
+    showToast(nextActive ? 'Reviewer reactivated.' : 'Reviewer suspended.', 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    showToast('Could not update: ' + err.message, 'error');
+  }
+}
+
+async function submitNewReviewer(isSystemAdmin){
+  const errEl = document.getElementById('newrev-error');
+  const name = document.getElementById('newrev-name').value.trim();
+  const email = document.getElementById('newrev-email').value.trim();
+  if(!name){ errEl.textContent = 'Full name is required.'; return; }
+  if(!/^\S+@\S+\.\S+$/.test(email)){ errEl.textContent = 'Enter a valid email address.'; return; }
+  const institutionId = isSystemAdmin ? (document.getElementById('newrev-institution').value || null) : null;
+  errEl.textContent = '';
+  try{
+    await apiFetch('/admin/staff', {
+      method: 'POST',
+      body: JSON.stringify({ email, full_name: name, role: 'reviewer', institution_id: institutionId }),
+    });
+    closeModal();
+    showToast(`Reviewer account created for ${name} — a password-reset link was emailed to ${email}.`, 'success');
+    await loadAllData();
+    renderPage();
+  }catch(err){
+    errEl.textContent = err.message;
+  }
 }
 
 function openModalAddInstitution(){
@@ -3498,51 +3825,91 @@ async function deleteInstitution(instId, name){
 /* ============================================================
    PAGE: USER MANAGEMENT (system admin)
    ============================================================ */
+let userSearchQuery = '';
+let userPage = 1;
+const USERS_PER_PAGE = 12;
+
 function renderUsers(){
-  const users = DB.users; // populated from GET /admin/users in loadAllData() (system_admin only)
+  const isSystemAdmin = session && session.role === 'system_admin';
+  const q = userSearchQuery.trim().toLowerCase();
+  const allUsers = DB.users; // GET /admin/users — system_admin sees everyone, institution_admin sees only their own institution's people
+  const filtered = q
+    ? allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.role.toLowerCase().includes(q))
+    : allUsers;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / USERS_PER_PAGE));
+  if(userPage > totalPages) userPage = totalPages;
+  const pageStart = (userPage - 1) * USERS_PER_PAGE;
+  const users = filtered.slice(pageStart, pageStart + USERS_PER_PAGE);
   return `
     <div class="page-head">
-      <div><div class="page-eyebrow">User management</div><h2>Users & roles</h2><p>Manage accounts, roles and access across the platform.</p></div>
-      <button class="btn" onclick="openModalAddResearcher()">+ Invite user</button>
+      <div><div class="page-eyebrow">User management</div><h2>${isSystemAdmin ? 'Users & roles' : 'Your institution\'s people'}</h2><p>${isSystemAdmin ? 'Manage accounts, roles and access across the platform.' : `Manage Researcher and Reviewer accounts at ${MY_INSTITUTION || 'your institution'}. You can switch someone between Researcher and Reviewer, and activate or suspend accounts — role changes to Institution Admin or System Admin need a System Admin.`}</p></div>
+      <button class="btn" onclick="openModalAddResearcher()">+ Invite ${isSystemAdmin ? 'user' : 'researcher'}</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" placeholder="Search by name, email, or role…" value="${userSearchQuery.replace(/"/g,'&quot;')}" style="max-width:320px;"
+        oninput="userSearchQuery=this.value; userPage=1; renderPage();">
+      ${filtered.length ? `<div class="row-sub" style="margin-left:auto;">${filtered.length} account${filtered.length===1?'':'s'}${q ? ` matching "${userSearchQuery}"` : ''}</div>` : ''}
     </div>
     <div class="clay card table-wrap">
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th>${isSystemAdmin ? '<th>Institution</th>' : ''}<th>Status</th><th></th></tr></thead>
         <tbody>
-          ${users.length===0 ? `<tr><td colspan="5"><div class="empty-state"><div class="ic">⚉</div>No users loaded.</div></td></tr>` : ''}
+          ${users.length===0 ? `<tr><td colspan="6"><div class="empty-state"><div class="ic">⚉</div>${q ? 'No accounts match your search.' : 'No users loaded.'}</div></td></tr>` : ''}
           ${users.map(u => `
             <tr>
               <td>${u.name}</td>
               <td class="mono">${u.email}</td>
               <td><span class="tag">${u.role}</span></td>
+              ${isSystemAdmin ? `<td>${u.institutionName || '<span class="row-sub">— none —</span>'}</td>` : ''}
               <td><span class="badge ${u.status==='Active'?'badge-published':'badge-archived'}">${u.status}</span></td>
               <td>
                 <div style="display:flex; gap:6px;">
-                  <button class="btn-icon" style="width:32px;height:32px;" onclick="openModalEditUser('${u.id}')" title="Edit role / status">✎</button>
+                  <button class="btn-icon" style="width:32px;height:32px;" onclick="openModalEditUser('${u.id}')" title="${isSystemAdmin ? 'Edit role / status' : 'Switch role / status'}">✎</button>
                   <button class="btn-icon" style="width:32px;height:32px;" onclick="toggleBlockUser('${u.id}')" title="${u.isActive ? 'Block this account' : 'Unblock this account'}">${u.isActive ? '🚫' : '✓'}</button>
-                  <button class="btn-icon" style="width:32px;height:32px; color:var(--red);" onclick="deleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')" title="Delete account permanently">🗑</button>
+                  ${isSystemAdmin ? `<button class="btn-icon" style="width:32px;height:32px; color:var(--red);" onclick="deleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')" title="Delete account permanently">🗑</button>` : ''}
                 </div>
               </td>
             </tr>
           `).join('')}
         </tbody>
       </table>
+      ${filtered.length > USERS_PER_PAGE ? `
+      <div style="display:flex; align-items:center; justify-content:center; gap:12px; padding:14px 0 4px;">
+        <button class="btn-icon" style="width:32px;height:32px;" ${userPage<=1?'disabled':''} onclick="userPage--; renderPage();" title="Previous page">‹</button>
+        <span class="row-sub">Page ${userPage} of ${totalPages}</span>
+        <button class="btn-icon" style="width:32px;height:32px;" ${userPage>=totalPages?'disabled':''} onclick="userPage++; renderPage();" title="Next page">›</button>
+      </div>` : ''}
     </div>
-    ${renderTableBrowserSection()}
+    ${isSystemAdmin ? renderTableBrowserSection() : ''}
   `;
 }
 
 function openModalEditUser(userId){
   const u = DB.users.find(x => x.id === userId);
   if(!u) return;
-  const roleOptions = ['researcher','institution_admin','reviewer','system_admin'];
+  const isSystemAdmin = session && session.role === 'system_admin';
+  // Institution Admins can only ever switch someone between Researcher and
+  // Reviewer — promoting to Institution Admin / System Admin, or moving
+  // someone to a different institution, needs a System Admin.
+  const roleOptions = isSystemAdmin ? ['researcher','institution_admin','reviewer','system_admin'] : ['researcher','reviewer'];
+  const needsInstitution = (role) => role === 'institution_admin' || role === 'reviewer';
   openModal(`
-    <div class="modal-head"><h3>Edit user</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="modal-head"><h3>${isSystemAdmin ? 'Edit user' : 'Edit account'}</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
     <div class="field-grid">
       <div class="row-sub">${u.name} · <span class="mono">${u.email}</span></div>
       <div class="field"><label>Role</label>
-        <select id="edituser-role">${roleOptions.map(r=>`<option value="${r}" ${r===u.rawRole?'selected':''}>${ROLE_LABELS[r]||r}</option>`).join('')}</select>
+        <select id="edituser-role" ${isSystemAdmin ? `onchange="document.getElementById('edituser-institution-wrap').style.display = ${JSON.stringify(needsInstitution)}(this.value) ? 'block' : 'none';"` : ''}>${roleOptions.map(r=>`<option value="${r}" ${r===u.rawRole?'selected':''}>${ROLE_LABELS[r]||r}</option>`).join('')}</select>
       </div>
+      ${isSystemAdmin ? `
+      <div id="edituser-institution-wrap" class="field" style="display:${needsInstitution(u.rawRole) ? 'block' : 'none'};">
+        <label>Institution</label>
+        <select id="edituser-institution">
+          <option value="">— none —</option>
+          ${institutionsCache.map(i=>`<option value="${i.id}" ${i.id===u.institutionId?'selected':''}>${i.name}</option>`).join('')}
+        </select>
+        <div class="row-sub" style="margin-top:4px;">Which institution this account is scoped to. ${u.rawRole==='researcher' ? 'Not used for Researcher accounts — their institution comes from their researcher profile instead.' : ''}</div>
+      </div>` : `
+      <div class="row-sub">Stays at ${MY_INSTITUTION || 'your institution'} — Institution Admins can't move someone to a different institution.</div>`}
       <div class="field"><label>Account status</label>
         <select id="edituser-active"><option value="true" ${u.isActive?'selected':''}>Active</option><option value="false" ${!u.isActive?'selected':''}>Suspended (blocked from logging in)</option></select>
       </div>
@@ -3551,9 +3918,11 @@ function openModalEditUser(userId){
         <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
         <button class="btn btn-block" onclick="submitEditUser('${u.id}')">Save changes</button>
       </div>
+      ${isSystemAdmin ? `
       <hr style="border:none; border-top:1px solid var(--clay-lo); margin:10px 0;">
       <div class="row-sub">Deleting is permanent — it removes their login and researcher profile. Any publications/projects they authored stay in the system as historical records.</div>
       <button class="btn btn-ghost btn-block" style="color:var(--red);" onclick="deleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}')">Delete account permanently</button>
+      ` : ''}
     </div>
   `);
 }
@@ -3561,13 +3930,23 @@ function openModalEditUser(userId){
 async function submitEditUser(userId){
   const errEl = document.getElementById('edituser-error');
   errEl.textContent = '';
+  const isSystemAdmin = session && session.role === 'system_admin';
+  const role = document.getElementById('edituser-role').value;
+  const institutionEl = document.getElementById('edituser-institution');
+  const payload = {
+    role,
+    is_active: document.getElementById('edituser-active').value === 'true',
+  };
+  // Only send institution_id for roles where the backend actually reads User.institution_id
+  // (institution_admin / reviewer), and only System Admin ever gets to set it explicitly —
+  // Institution Admins never see this field, so the backend keeps the user's existing institution.
+  if(isSystemAdmin && (role === 'institution_admin' || role === 'reviewer') && institutionEl){
+    payload.institution_id = institutionEl.value || null;
+  }
   try{
     await apiFetch(`/admin/users/${userId}`, {
       method: 'PATCH',
-      body: JSON.stringify({
-        role: document.getElementById('edituser-role').value,
-        is_active: document.getElementById('edituser-active').value === 'true',
-      }),
+      body: JSON.stringify(payload),
     });
     closeModal();
     showToast('User updated.', 'success');
@@ -3613,9 +3992,10 @@ async function deleteUser(userId, name){
    PAGE: AUDIT & COMPLIANCE (system admin)
    ============================================================ */
 function renderAudit(){
+  const isSystemAdmin = session && session.role === 'system_admin';
   return `
     <div class="page-head">
-      <div><div class="page-eyebrow">Audit module</div><h2>Audit & compliance</h2><p>User activity, security logs and compliance reports.</p></div>
+      <div><div class="page-eyebrow">Audit module</div><h2>Audit & compliance</h2><p>${isSystemAdmin ? 'User activity, security logs and compliance reports.' : `Activity by accounts at ${MY_INSTITUTION || 'your institution'} — your own actions plus your researchers' and reviewers'.`}</p></div>
       <button class="btn btn-ghost" onclick="exportAuditLog()">⇩ Export audit log</button>
     </div>
     <div class="clay card table-wrap">
@@ -3634,7 +4014,7 @@ function renderAudit(){
         </tbody>
       </table>
     </div>
-    ${renderTableBrowserSection()}
+    ${isSystemAdmin ? renderTableBrowserSection() : ''}
   `;
 }
 

@@ -4,7 +4,7 @@ import uuid
 from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
-from app.schemas.common import ResearcherOut
+from app.schemas.common import InstitutionOut, ResearcherOut
 
 ORCID_PATTERN = re.compile(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$")
 
@@ -136,6 +136,11 @@ class UserOut(BaseModel):
     is_active: bool
     email_notifications_enabled: bool = True
     researcher: ResearcherOut | None = None
+    # Home institution for staff accounts without a Researcher profile
+    # (institution_admin / reviewer). Researcher accounts should read their
+    # institution from `researcher.institution` instead — this is only the
+    # fallback for roles that don't have a Researcher profile.
+    institution: InstitutionOut | None = None
 
 
 class NotificationPreferenceUpdate(BaseModel):

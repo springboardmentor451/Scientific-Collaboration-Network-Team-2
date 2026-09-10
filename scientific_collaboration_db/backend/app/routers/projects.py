@@ -42,6 +42,7 @@ def create_project(
         funding_source=payload.funding_source,
         budget=payload.budget,
         status=payload.status,
+        progress_percentage=payload.progress_percentage,
         start_date=payload.start_date,
         end_date=payload.end_date,
         lead_institution_id=payload.lead_institution_id,

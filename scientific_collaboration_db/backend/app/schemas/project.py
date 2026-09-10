@@ -13,10 +13,18 @@ class ProjectCreate(BaseModel):
     funding_source: str | None = None
     budget: Decimal | None = None
     status: ProjectStatus = ProjectStatus.PLANNED
+    progress_percentage: int | None = None
     start_date: date | None = None
     end_date: date | None = None
     lead_institution_id: uuid.UUID | None = None
     lead_researcher_id: uuid.UUID | None = None  # defaults to the submitter if omitted
+
+    @field_validator("progress_percentage")
+    @classmethod
+    def progress_in_range(cls, v: int | None) -> int | None:
+        if v is not None and not (0 <= v <= 100):
+            raise ValueError("progress_percentage must be between 0 and 100")
+        return v
 
     @field_validator("title")
     @classmethod
@@ -45,8 +53,16 @@ class ProjectUpdate(BaseModel):
     funding_source: str | None = None
     budget: Decimal | None = None
     status: ProjectStatus | None = None
+    progress_percentage: int | None = None
     start_date: date | None = None
     end_date: date | None = None
+
+    @field_validator("progress_percentage")
+    @classmethod
+    def progress_in_range(cls, v: int | None) -> int | None:
+        if v is not None and not (0 <= v <= 100):
+            raise ValueError("progress_percentage must be between 0 and 100")
+        return v
 
     @field_validator("title")
     @classmethod

@@ -132,7 +132,7 @@ That's it — no other code changes needed.
 ```bash
 uvicorn app.main:app --reload
 ```
-Open http://localhost:8000/docs for interactive Swagger docs.
+Open http://localhost:8001/docs for interactive Swagger docs.
 
 ### Read-only endpoints (no login needed)
 - `GET /health` — confirms the API can reach PostgreSQL
@@ -174,6 +174,43 @@ Open http://localhost:8000/docs for interactive Swagger docs.
 - `POST /projects` — create a project; defaults you as the lead researcher
 - `PUT /projects/{id}` — update a project. Only the lead researcher, an
   institution admin, or a system admin can edit it
+
+### Peer review workflow (System Admin / Institution Admin / Reviewer)
+- `GET /reviews/reviewers` — reviewer accounts eligible to be assigned.
+  System Admin sees everyone; Institution Admin sees only their own
+  institution's reviewers.
+- `POST /reviews` — assign a reviewer to a publication (`publication_id`,
+  `reviewer_id`, optional `note`). Institution Admin can only assign within
+  their own institution (both the publication's authors and the reviewer
+  must belong to it) — a mismatch on either side is a 403.
+- `GET /reviews` — list review assignments, scoped the same way as above.
+  Optional `?status=pending|approved|changes_requested|rejected` filter.
+- `DELETE /reviews/{id}` — cancel a still-pending assignment.
+- `GET /reviews/mine` — the logged-in Reviewer's own queue + history.
+- `POST /reviews/{id}/decision` — a Reviewer submits their decision
+  (`status`: `approved` / `changes_requested` / `rejected`, optional
+  `comments`). Approving a submitted publication publishes it; rejecting one
+  sends it back to draft. Both the assigned reviewer and the affected
+  author get an email (or a console log in dev mode).
+
+### Account & role management (System Admin / Institution Admin)
+- `POST /admin/researchers` — onboard a new Researcher account (System Admin:
+  any institution; Institution Admin: their own institution only). Emails a
+  password-reset link so the new researcher sets their own password.
+- `POST /admin/staff` — onboard a Reviewer or (System Admin only) another
+  Institution Admin account directly, with no Researcher profile attached.
+- `GET /admin/users` — System Admin sees every account; Institution Admin
+  sees only accounts belonging to their own institution.
+- `PATCH /admin/users/{id}` — update role / active status / institution.
+  System Admin can change anything. Institution Admin is restricted to:
+  accounts already in their own institution, switching **only** between
+  Researcher and Reviewer (never promoting to Institution Admin/System
+  Admin), and toggling active status — institution reassignment is always
+  System Admin only.
+- `DELETE /admin/users/{id}` — System Admin only.
+- `GET /admin/audit-logs` — System Admin sees every action on the platform;
+  Institution Admin sees only actions performed by accounts in their own
+  institution (themselves, their researchers, their reviewers).
 
 ## Making schema changes later
 1. Edit/add a model in `app/models/`.

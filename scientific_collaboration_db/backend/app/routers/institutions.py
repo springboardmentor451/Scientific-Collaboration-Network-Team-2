@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import log_action
 from app.core.deps import require_roles
 from app.database import get_db
-from app.models import Institution
+from app.models import Institution, UserRole
 from app.schemas.common import InstitutionOut
 from app.schemas.institution import InstitutionCreate, InstitutionUpdate
 
@@ -14,7 +14,14 @@ admin_only = require_roles("system_admin", "institution_admin")
 
 
 @router.post("", response_model=InstitutionOut, status_code=status.HTTP_201_CREATED)
-def create_institution(payload: InstitutionCreate, db: Session = Depends(get_db), current_user=Depends(admin_only)):
+def create_institution(
+    payload: InstitutionCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("system_admin")),
+):
+    # Only System Admin creates new institutions. An Institution Admin
+    # manages the one institution they're already assigned to — they don't
+    # add arbitrary new ones.
     institution = Institution(**payload.model_dump())
     db.add(institution)
     try:
@@ -32,6 +39,15 @@ def update_institution(institution_id: str, payload: InstitutionUpdate, db: Sess
     institution = db.get(Institution, institution_id)
     if not institution:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Institution not found")
+
+    # An Institution Admin may only edit the one institution they're
+    # actually assigned to — not any institution on the platform.
+    if current_user.role == UserRole.INSTITUTION_ADMIN and str(current_user.institution_id) != str(institution_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only edit the institution you're assigned to.",
+        )
+
     changed = payload.model_dump(exclude_unset=True)
     for field, value in changed.items():
         setattr(institution, field, value)
