@@ -131,6 +131,8 @@ class ConferenceOut(BaseModel):
     website: str | None = None
     start_date: date | None
     end_date: date | None
+    institution_id: uuid.UUID | None = None
+    institution_name: str | None = None
 
 
 class CitationOut(BaseModel):

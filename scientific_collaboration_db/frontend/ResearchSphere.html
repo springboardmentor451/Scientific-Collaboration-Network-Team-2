@@ -179,6 +179,37 @@ a{color:inherit; text-decoration:none;}
 .field input::placeholder{color:var(--ink-faint);}
 .field input:focus, .field select:focus{box-shadow:var(--shadow-in), 0 0 0 2px var(--indigo);}
 
+/* Themed dropdown for standalone selects that live outside a .field/.filter-field
+   wrapper (e.g. the database table browser) — strips the plain OS control look
+   and matches the app's clay/neumorphic buttons instead, with a custom chevron
+   that recolors for dark mode. */
+.select-clay{
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  padding:11px 38px 11px 16px; border-radius:14px; border:none; background-color:var(--clay);
+  box-shadow:var(--shadow-out-sm); color:var(--ink); font-size:13.5px; font-weight:600;
+  font-family:inherit; cursor:pointer; transition:.15s;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%236E6E8C' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat:no-repeat; background-position:right 14px center; background-size:11px 7px;
+}
+.select-clay:hover{transform:translateY(-1px);}
+.select-clay:focus{box-shadow:var(--shadow-out-sm), 0 0 0 2px var(--indigo); outline:none;}
+.select-clay::-ms-expand{display:none;}
+[data-theme="dark"] .select-clay{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23B3B3CC' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}
+
+/* Themed text input for the same standalone (non-.field) contexts — search
+   boxes on list pages, etc. Sunken clay look with an inline search icon. */
+.input-clay{
+  padding:11px 15px; border-radius:14px; border:none; background:var(--clay);
+  box-shadow:var(--shadow-in); color:var(--ink); font-size:13.5px; font-family:inherit; width:100%;
+}
+.input-clay::placeholder{color:var(--ink-faint);}
+.input-clay:focus{box-shadow:var(--shadow-in), 0 0 0 2px var(--indigo); outline:none;}
+.search-box{position:relative; display:inline-flex; align-items:center;}
+.search-box .search-ic{position:absolute; left:14px; font-size:13px; color:var(--ink-faint); pointer-events:none;}
+.search-box .input-clay{padding-left:38px;}
+
 .btn{
   padding:13px 20px; border-radius:14px; font-weight:600; font-size:14px;
   background:var(--indigo); color:#fff; box-shadow:var(--shadow-out-sm);
@@ -320,9 +351,16 @@ td.mono, .cell-doi{font-family:var(--font-mono); font-size:12px; color:var(--ink
 
 .kanban{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;}
 @media (max-width:900px){ .kanban{grid-template-columns:1fr;} }
-.kcol{background:var(--clay); box-shadow:var(--shadow-in); border-radius:20px; padding:14px; display:flex; flex-direction:column; gap:10px; min-height:120px;}
+.kcol{background:var(--clay); box-shadow:var(--shadow-in); border-radius:20px; padding:14px; display:flex; flex-direction:column; gap:10px; min-height:170px;}
 .kcol h4{font-size:12.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); display:flex; justify-content:space-between;}
-.kcard{background:var(--clay); box-shadow:var(--shadow-out-sm); border-radius:14px; padding:12px; font-size:12.5px;}
+.kcard{background:var(--clay); box-shadow:var(--shadow-out-sm); border-radius:14px; padding:12px; font-size:12.5px; transition:.15s;}
+.kcard:hover{transform:translateY(-2px);}
+.kcard .kcard-meta{color:var(--ink-faint); font-size:11.5px; margin-top:4px; display:flex; flex-direction:column; gap:2px;}
+.kcard .kcard-status{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:2px 8px; border-radius:8px; margin-top:8px;}
+.network-label{fill:var(--ink-soft); font-family:var(--font-body);}
+.network-legend{display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:14px; padding-top:14px; border-top:1px solid var(--clay-lo);}
+.network-legend .legend-item{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-soft);}
+.network-legend .legend-dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
 .kcard .row-title{font-size:13px;}
 .kcard .avatars{display:flex; margin-top:8px;}
 .mini-avatar{width:22px; height:22px; border-radius:8px; background:var(--indigo); color:#fff; font-size:9px; display:flex; align-items:center; justify-content:center; font-weight:700; margin-left:-6px; border:2px solid var(--clay); box-shadow:var(--shadow-out-sm);}
@@ -1312,6 +1350,7 @@ function mapPublication(p, researcherLookupByName) {
   };
 }
 
+const PROJECT_STATUS_LABEL = {planned:'Planned', active:'Active', on_hold:'On hold', completed:'Completed', cancelled:'Cancelled'};
 function mapProject(p) {
   const PROJECT_STATUS_MAP = {planned:'planning', active:'active', on_hold:'planning', completed:'completed', cancelled:'completed'};
   const PROGRESS_BY_STATUS = {planned:10, active:55, on_hold:40, completed:100, cancelled:100};
@@ -1320,10 +1359,17 @@ function mapProject(p) {
     name: p.title,
     status: PROJECT_STATUS_MAP[p.status] || 'planning',
     rawStatus: p.status,
+    statusLabel: PROJECT_STATUS_LABEL[p.status] || p.status,
     members: (p.member_names && p.member_names.length ? p.member_names : (p.lead_researcher_name ? [p.lead_researcher_name] : [])).map(lastName),
-    progress: PROGRESS_BY_STATUS[p.status] ?? 0, // no explicit progress field in the backend — derived from status
+    // Real admin-set completion percentage when the backend has one on
+    // file; only falls back to a status-derived estimate when it doesn't.
+    progress: p.progress_percentage != null ? p.progress_percentage : (PROGRESS_BY_STATUS[p.status] ?? 0),
     inst: p.lead_institution ? p.lead_institution.name : '—',
     dept: '—', // projects aren't linked to a department in the backend schema
+    fundingSource: p.funding_source || null,
+    leadResearcher: p.lead_researcher_name || null,
+    startDate: p.start_date || null,
+    endDate: p.end_date || null,
   };
 }
 
@@ -1338,6 +1384,8 @@ function mapConference(c) {
     location: c.location || '—',
     website: c.website || null,
     status: (c.start_date && c.start_date < today) ? 'Completed' : 'Upcoming',
+    institutionId: c.institution_id || null,
+    institutionName: c.institution_name || null,
   };
 }
 
@@ -1480,11 +1528,13 @@ async function loadAllData() {
   if (currentUser && currentUser.researcher) {
     MY_LASTNAME = lastName(currentUser.researcher.full_name);
     MY_INSTITUTION = currentUser.researcher.institution ? currentUser.researcher.institution.name : (institutionsCache[0] ? institutionsCache[0].name : '');
+    MY_INSTITUTION_ID = currentUser.researcher.institution ? currentUser.researcher.institution.id : null;
   } else {
     MY_LASTNAME = '';
     // Institution Admins and Reviewers are linked to a real institution via
     // currentUser.institution (User.institution_id on the backend) now.
     MY_INSTITUTION = currentUser && currentUser.institution ? currentUser.institution.name : (institutionsCache[0] ? institutionsCache[0].name : '');
+    MY_INSTITUTION_ID = currentUser && currentUser.institution ? currentUser.institution.id : null;
   }
 }
 
@@ -1891,6 +1941,7 @@ const PAGE_ACCESS = {
   users:          ['system_admin','institution_admin'],
   audit:          ['system_admin','institution_admin'],
   profile:        ['researcher','reviewer','institution_admin','system_admin'],
+  support:        ['researcher','reviewer','institution_admin','system_admin'],
 };
 
 function canAccess(pageId, role){
@@ -1910,6 +1961,7 @@ function navFor(role){
     {group:'Insights', id:'analysis', label:'Analysis Dashboard', ic:'📊'},
     {group:'Administration', id:'users', label:'User Management', ic:'⚉'},
     {group:'Administration', id:'audit', label:'Audit & Compliance', ic:'⛊'},
+    {group:'You', id:'support', label: role === 'system_admin' ? 'Support Inbox' : 'Contact Support', ic:'💬'},
     {group:'You', id:'profile', label:'Profile', ic:'☺'},
   ].filter(item => canAccess(item.id, role));
 
@@ -1987,12 +2039,14 @@ function renderPage(){
     collaborations: renderCollaborations, conferences: renderConferences, citations: renderCitations,
     profile: renderProfile, review: renderReview,
     institution: renderInstitution, users: renderUsers, audit: renderAudit,
-    analysis: renderAnalysis,
+    analysis: renderAnalysis, support: renderSupport,
   };
   root.innerHTML = (renderers[currentPage] || renderDashboard)();
   if(currentPage==='dashboard') drawDashboardChart();
   if(currentPage==='analysis') initAnalysisDashboard();
   if(currentPage==='users' || currentPage==='audit') initTableBrowserOptions();
+  if(currentPage==='support') initSupportPage();
+  if(currentPage==='collaborations') initCollaborationsNetwork();
 }
 
 /* ============================================================
@@ -2855,21 +2909,44 @@ async function submitNewPublication(status){
 /* ============================================================
    PAGE: COLLABORATIONS
    ============================================================ */
+const KCOL_EMPTY_COPY = {
+  planning: {ic:'✎', text:'No projects being planned right now — start one to line up a new partnership.'},
+  active:   {ic:'⌘', text:'Nothing active at the moment. Move a planned project forward to see it here.'},
+  completed:{ic:'✓', text:'No completed projects yet — wrapped-up work will land in this column.'},
+};
+const KCOL_ACCENT = {planning:'var(--amber)', active:'var(--indigo)', completed:'var(--green)'};
+
 function renderCollaborations(){
   const cols = [
     {key:'planning', label:'Planning'},
     {key:'active', label:'Active'},
     {key:'completed', label:'Completed'},
   ];
+  const totalProjects = DB.projects.length;
+  const activeCount = DB.projects.filter(p=>p.status==='active').length;
+  const completedCount = DB.projects.filter(p=>p.status==='completed').length;
+  const instCount = new Set(DB.researchers.map(r=>r.inst).filter(i=>i && i!=='—')).size;
+  const avgProgress = totalProjects ? Math.round(DB.projects.reduce((s,p)=>s+(p.progress||0),0) / totalProjects) : 0;
+
   return `
     <div class="page-head">
       <div><div class="page-eyebrow">Collaboration management</div><h2>Collaborations</h2><p>Co-author networks, funding projects and institutional partnerships.</p></div>
       <button class="btn" onclick="openModalNewProject()">+ New project</button>
     </div>
 
+    <div class="grid grid-4" style="margin-bottom:16px;">
+      ${statCardHtml('⌘','var(--indigo)', totalProjects, 'Total projects')}
+      ${statCardHtml('▶','var(--teal)', activeCount, 'Active right now')}
+      ${statCardHtml('✓','var(--green)', completedCount, 'Completed')}
+      ${statCardHtml('⌂','var(--coral)', instCount, 'Institutions involved')}
+    </div>
+
     <div class="clay card" style="margin-bottom:16px;">
-      <div class="card-head"><div><h3>Institutional collaboration network</h3><div class="card-sub">Nodes represent partner institutions</div></div></div>
-      <svg id="collab-network" viewBox="0 0 900 160" style="width:100%; height:160px;"></svg>
+      <div class="card-head"><div><h3>Institutional collaboration network</h3><div class="card-sub">Built from real co-authorship — an edge means two institutions have published together</div></div>
+        <div class="row-sub">${totalProjects ? `${avgProgress}% avg. completion` : ''}</div>
+      </div>
+      <svg id="collab-network" viewBox="0 0 900 220" style="width:100%; height:220px;"></svg>
+      <div id="collab-network-legend"></div>
     </div>
 
     <div class="kanban">
@@ -2879,14 +2956,117 @@ function renderCollaborations(){
           ${DB.projects.filter(p=>p.status===c.key).map(p => `
             <div class="kcard">
               <div class="row-title">${p.name}</div>
-              <div class="progress-track" style="margin-top:8px;"><div class="progress-fill" style="width:${p.progress}%;"></div></div>
-              <div class="avatars">${p.members.map(m=>`<div class="mini-avatar">${m[0]}</div>`).join('')}</div>
+              <div class="kcard-meta">
+                ${p.inst && p.inst !== '—' ? `<span>⌂ ${p.inst}</span>` : ''}
+                ${p.leadResearcher ? `<span>◎ Led by ${p.leadResearcher}</span>` : ''}
+                ${p.fundingSource ? `<span>◆ ${p.fundingSource}</span>` : ''}
+                ${p.startDate ? `<span>🗓️ ${p.startDate}${p.endDate ? ' – ' + p.endDate : ''}</span>` : ''}
+              </div>
+              <div class="progress-track" style="margin-top:10px;"><div class="progress-fill" style="width:${p.progress}%;"></div></div>
+              <div class="row-sub" style="font-size:11px; margin-top:3px;">${p.progress}% complete</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
+                <div class="avatars">${p.members.length ? p.members.map(m=>`<div class="mini-avatar" title="${m}">${m[0]}</div>`).join('') : `<span class="row-sub" style="font-size:11px;">No members yet</span>`}</div>
+                <span class="kcard-status" style="background:${KCOL_ACCENT[c.key]}22; color:${KCOL_ACCENT[c.key]};">${p.statusLabel}</span>
+              </div>
             </div>
-          `).join('') || `<div class="empty-state" style="padding:20px 0;"><div class="ic">⌘</div>Nothing here yet.</div>`}
+          `).join('') || `<div class="empty-state" style="padding:26px 0;"><div class="ic">${KCOL_EMPTY_COPY[c.key].ic}</div>${KCOL_EMPTY_COPY[c.key].text}</div>`}
         </div>
       `).join('')}
     </div>
   `;
+}
+
+/* Real institution-to-institution collaboration graph, computed from actual
+   publication co-authorship (which researchers, at which institutions,
+   published together) — replaces the old decorative random graph that used
+   to sit on this page regardless of the real underlying data. */
+function computeInstitutionCollaborationGraph(pubs, researchers){
+  const nameToInst = new Map();
+  researchers.forEach(r => { if(r.inst && r.inst !== '—') nameToInst.set(r.name, r.inst); });
+  const nodeCounts = new Map();
+  const edgeCounts = new Map();
+  pubs.forEach(p => {
+    const insts = new Set();
+    (p.authorFullNames || []).forEach(name => {
+      const inst = nameToInst.get(name);
+      if(inst) insts.add(inst);
+    });
+    insts.forEach(inst => nodeCounts.set(inst, (nodeCounts.get(inst)||0) + 1));
+    const arr = Array.from(insts);
+    for(let i=0;i<arr.length;i++){
+      for(let j=i+1;j<arr.length;j++){
+        const key = [arr[i], arr[j]].sort().join('__');
+        edgeCounts.set(key, (edgeCounts.get(key)||0) + 1);
+      }
+    }
+  });
+  return { nodeCounts, edgeCounts };
+}
+
+function drawInstitutionCollaborationNetwork(id, pubs, researchers){
+  const svg = document.getElementById(id);
+  const legendEl = document.getElementById('collab-network-legend');
+  if(!svg) return;
+  const w = 900, h = 220;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const { nodeCounts, edgeCounts } = computeInstitutionCollaborationGraph(pubs, researchers);
+  const names = Array.from(nodeCounts.keys());
+  const palette = chartPalette();
+
+  if(names.length === 0){
+    svg.innerHTML = '';
+    if(legendEl) legendEl.innerHTML = `<div class="empty-state" style="padding:20px 0;"><div class="ic">⌘</div>No cross-institution co-authorship yet — once researchers from different institutions publish together, that partnership shows up here.</div>`;
+    return;
+  }
+
+  const cx = w/2, cy = h/2, radius = Math.min(w,h)/2 - 56;
+  const pos = {};
+  names.forEach((name, i) => {
+    const angle = (i / names.length) * Math.PI * 2 - Math.PI/2;
+    pos[name] = { x: cx + radius*Math.cos(angle), y: cy + radius*Math.sin(angle) };
+  });
+
+  let edgesSvg = '';
+  let pairSummaries = [];
+  edgeCounts.forEach((count, key) => {
+    const [a, b] = key.split('__');
+    if(pos[a] && pos[b]){
+      const width = Math.min(6, 1.5 + count*0.9);
+      edgesSvg += `<line x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}" stroke="${palette[0]}" stroke-opacity="0.35" stroke-width="${width}"><title>${a} × ${b} — ${count} joint publication(s)</title></line>`;
+      pairSummaries.push({a, b, count});
+    }
+  });
+
+  let dotsSvg = names.map((name, i) => {
+    const p = pos[name];
+    const count = nodeCounts.get(name);
+    const r = Math.min(22, 11 + count*2.2);
+    const color = palette[i % palette.length];
+    const labelY = p.y + (p.y >= cy ? r + 16 : -r - 8);
+    const shortLabel = name.length > 20 ? name.slice(0,19) + '…' : name;
+    return `
+      <circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${color}" fill-opacity="0.88"><title>${name} — ${count} publication(s)</title></circle>
+      <text x="${p.x}" y="${labelY}" text-anchor="middle" font-size="11.5" font-weight="700" class="network-label">${shortLabel}</text>
+    `;
+  }).join('');
+
+  svg.innerHTML = edgesSvg + dotsSvg;
+
+  if(legendEl){
+    pairSummaries.sort((x,y) => y.count - x.count);
+    const top = pairSummaries.slice(0, 4);
+    legendEl.innerHTML = `
+      <div class="network-legend">
+        <div class="legend-item"><b>${names.length}</b>&nbsp;institution${names.length===1?'':'s'} publishing together</div>
+        <div class="legend-item"><b>${pairSummaries.length}</b>&nbsp;active partnership${pairSummaries.length===1?'':'s'}</div>
+        ${top.map(t => `<div class="legend-item"><span class="legend-dot" style="background:${palette[0]};"></span>${t.a} ↔ ${t.b} · ${t.count} joint paper${t.count===1?'':'s'}</div>`).join('')}
+      </div>
+    `;
+  }
+}
+
+function initCollaborationsNetwork(){
+  drawInstitutionCollaborationNetwork('collab-network', DB.publications, DB.researchers);
 }
 
 function openModalNewProject(){
@@ -2937,6 +3117,16 @@ async function submitNewProject(){
 /* ============================================================
    PAGE: CONFERENCES
    ============================================================ */
+function canEditConference(c){
+  if(!session) return false;
+  if(session.role === 'system_admin') return true;
+  // An Institution Admin can only edit conferences that belong to their own
+  // institution — never another institution's, and never a platform-wide
+  // (no-institution) one created by a System Admin.
+  if(session.role === 'institution_admin') return !!(c.institutionId && MY_INSTITUTION_ID && c.institutionId === MY_INSTITUTION_ID);
+  return false;
+}
+
 function renderConferences(){
   const isAdmin = session && (session.role === 'system_admin' || session.role === 'institution_admin');
   return `
@@ -2955,13 +3145,13 @@ function renderConferences(){
             <div><h3>${c.name}</h3><div class="card-sub">${c.location}${c.date ? ' · ' + c.date : ''}${c.endDate && c.endDate !== c.date ? ' – ' + c.endDate : ''}</div></div>
             <span class="badge badge-submitted">${c.status}</span>
           </div>
-          <div class="tag-row"><span class="tag">Role: ${c.role}</span></div>
+          <div class="tag-row"><span class="tag">Role: ${c.role}</span>${session && session.role === 'system_admin' ? `<span class="tag">${c.institutionName || 'Platform-wide'}</span>` : (c.institutionName ? `<span class="tag">${c.institutionName}</span>` : '')}</div>
           ${c.website ? `<div style="margin-top:8px; font-size:13px;"><a href="${c.website}" target="_blank" rel="noopener" style="color:var(--indigo);">${c.website}</a></div>` : ''}
           <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn btn-ghost btn-sm" onclick="viewConferenceSchedule('${c.id}')">View schedule</button>
             <button class="btn btn-sm" onclick="downloadConferenceIcs('${c.id}')">Add to calendar</button>
             ${c.myParticipationId ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="cancelConferenceRegistration('${c.myParticipationId}','${c.id}')">Cancel registration</button>` : ''}
-            ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openModalEditConference('${c.id}')">Edit</button>` : ''}
+            ${canEditConference(c) ? `<button class="btn btn-ghost btn-sm" onclick="openModalEditConference('${c.id}')">Edit</button>` : (isAdmin ? `<button class="btn btn-ghost btn-sm" style="opacity:.5; cursor:not-allowed;" disabled title="Only ${c.institutionName || 'a System Admin'} can edit this conference.">Edit</button>` : '')}
             ${session.role === 'system_admin' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteConference('${c.id}','${c.name.replace(/'/g,"\\'")}')">Delete conference</button>` : ''}
           </div>
         </div>
@@ -2973,6 +3163,8 @@ function renderConferences(){
 function openModalEditConference(confId){
   const c = DB.conferences.find(x => x.id === confId);
   if(!c) return;
+  if(!canEditConference(c)){ showToast("You can only edit conferences that belong to your own institution.", 'error'); return; }
+  const isSystemAdmin = session.role === 'system_admin';
   openModal(`
     <div class="modal-head"><h3>Edit conference</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
     <div class="field-grid">
@@ -2981,6 +3173,13 @@ function openModalEditConference(confId){
       <div class="field"><label>Website</label><input type="text" id="editconf-website" value="${(c.website||'').replace(/"/g,'&quot;')}"></div>
       <div class="field"><label>Start date</label><input type="date" id="editconf-start" value="${c.date||''}"></div>
       <div class="field"><label>End date</label><input type="date" id="editconf-end" value="${c.endDate||''}"></div>
+      ${isSystemAdmin ? `
+      <div class="field"><label>Institution</label>
+        <select id="editconf-inst">
+          <option value="">Platform-wide (no institution)</option>
+          ${institutionsCache.map(i => `<option value="${i.id}" ${c.institutionId===i.id?'selected':''}>${i.name}</option>`).join('')}
+        </select>
+      </div>` : `<div class="row-sub">Institution: ${c.institutionName || MY_INSTITUTION || 'your institution'} — Institution Admins can't move a conference to another institution.</div>`}
       <div id="editconf-error" style="color:var(--red); font-size:13px;"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
@@ -2995,6 +3194,7 @@ async function submitEditConference(confId){
   const name = document.getElementById('editconf-name').value.trim();
   if(!name){ errEl.textContent = 'Conference name is required.'; return; }
   errEl.textContent = '';
+  const instSelect = document.getElementById('editconf-inst');
   try{
     await apiFetch(`/conferences/${confId}`, {
       method: 'PUT',
@@ -3004,6 +3204,9 @@ async function submitEditConference(confId){
         website: document.getElementById('editconf-website').value.trim() || null,
         start_date: document.getElementById('editconf-start').value || null,
         end_date: document.getElementById('editconf-end').value || null,
+        // Only a System Admin sees/sends this field — Institution Admins
+        // never touch institution_id, so the backend just keeps theirs as-is.
+        ...(instSelect ? { institution_id: instSelect.value || null } : {}),
       }),
     });
     closeModal();
@@ -3126,6 +3329,7 @@ function downloadConferenceIcs(confId){
 }
 
 function openModalAddConference(){
+  const isSystemAdmin = session.role === 'system_admin';
   openModal(`
     <div class="modal-head"><h3>Add conference</h3><button class="btn-icon" onclick="closeModal()">✕</button></div>
     <div class="field-grid">
@@ -3134,6 +3338,13 @@ function openModalAddConference(){
       <div class="field"><label>Website (optional)</label><input type="text" id="newconf-website" placeholder="https://..."></div>
       <div class="field"><label>Start date</label><input type="date" id="newconf-start"></div>
       <div class="field"><label>End date (optional)</label><input type="date" id="newconf-end"></div>
+      ${isSystemAdmin ? `
+      <div class="field"><label>Institution</label>
+        <select id="newconf-inst">
+          <option value="">Platform-wide (no institution)</option>
+          ${institutionsCache.map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+        </select>
+      </div>` : `<div class="row-sub">This conference will belong to ${MY_INSTITUTION || 'your institution'} — you'll only be able to edit it there.</div>`}
       <div id="newconf-error" style="color:var(--red); font-size:13px;"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
@@ -3148,6 +3359,7 @@ async function submitNewConference(){
   const name = document.getElementById('newconf-name').value.trim();
   if(!name){ errEl.textContent = 'Conference name is required.'; return; }
   errEl.textContent = '';
+  const instSelect = document.getElementById('newconf-inst');
   try{
     await apiFetch('/conferences', {
       method:'POST',
@@ -3157,6 +3369,9 @@ async function submitNewConference(){
         website: document.getElementById('newconf-website').value.trim() || null,
         start_date: document.getElementById('newconf-start').value || null,
         end_date: document.getElementById('newconf-end').value || null,
+        // Institution Admins never send this — the backend stamps their own
+        // institution on regardless of what's sent, same as researcher onboarding.
+        ...(instSelect ? { institution_id: instSelect.value || null } : {}),
       }),
     });
     closeModal();
@@ -3846,8 +4061,11 @@ function renderUsers(){
       <button class="btn" onclick="openModalAddResearcher()">+ Invite ${isSystemAdmin ? 'user' : 'researcher'}</button>
     </div>
     <div class="toolbar">
-      <input type="text" placeholder="Search by name, email, or role…" value="${userSearchQuery.replace(/"/g,'&quot;')}" style="max-width:320px;"
-        oninput="userSearchQuery=this.value; userPage=1; renderPage();">
+      <div class="search-box" style="max-width:320px; flex:1;">
+        <span class="search-ic">🔍</span>
+        <input type="text" class="input-clay" placeholder="Search by name, email, or role…" value="${userSearchQuery.replace(/"/g,'&quot;')}"
+          oninput="userSearchQuery=this.value; userPage=1; renderPage();">
+      </div>
       ${filtered.length ? `<div class="row-sub" style="margin-left:auto;">${filtered.length} account${filtered.length===1?'':'s'}${q ? ` matching "${userSearchQuery}"` : ''}</div>` : ''}
     </div>
     <div class="clay card table-wrap">
@@ -3880,7 +4098,7 @@ function renderUsers(){
         <button class="btn-icon" style="width:32px;height:32px;" ${userPage>=totalPages?'disabled':''} onclick="userPage++; renderPage();" title="Next page">›</button>
       </div>` : ''}
     </div>
-    ${isSystemAdmin ? renderTableBrowserSection() : ''}
+    ${(isSystemAdmin || session.role === 'institution_admin') ? renderTableBrowserSection() : ''}
   `;
 }
 
@@ -4014,7 +4232,7 @@ function renderAudit(){
         </tbody>
       </table>
     </div>
-    ${isSystemAdmin ? renderTableBrowserSection() : ''}
+    ${(isSystemAdmin || session.role === 'institution_admin') ? renderTableBrowserSection() : ''}
   `;
 }
 
@@ -4037,7 +4255,9 @@ function exportAuditLog(){
 
 /* ============================================================
    Read-only raw database table browser — real, backed by
-   GET /admin/tables and GET /admin/tables/{name} (system_admin only).
+   GET /admin/tables and GET /admin/tables/{name}. Available to
+   System Admins (every table, every row) and Institution Admins
+   (a subset of tables, rows scoped to their own institution).
    Shown at the bottom of both Users and Audit pages.
    ============================================================ */
 let tableBrowserCurrent = null;
@@ -4045,13 +4265,17 @@ let tableBrowserRows = [];
 let tableBrowserColumns = [];
 
 function renderTableBrowserSection(){
+  const isSystemAdmin = session && session.role === 'system_admin';
   return `
     <div class="clay card" style="margin-top:20px;">
       <div class="card-head">
-        <div><h3 style="font-size:14px;">Database table browser</h3><div class="card-sub">Read-only, live from PostgreSQL</div></div>
-        <select id="table-browser-select" onchange="loadTableBrowser(this.value)" style="max-width:220px;">
-          <option value="">Choose a table…</option>
-        </select>
+        <div><h3 style="font-size:14px;">Database table browser</h3><div class="card-sub">${isSystemAdmin ? 'Read-only, live from PostgreSQL' : `Read-only, scoped to ${MY_INSTITUTION || 'your institution'}`}</div></div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="table-browser-select" class="select-clay" onchange="loadTableBrowser(this.value)" style="max-width:240px;">
+            <option value="">Choose a table…</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" id="table-browser-csv-btn" onclick="downloadTableBrowserCsv()" disabled>⇩ Download CSV</button>
+        </div>
       </div>
       <div id="table-browser-body" style="overflow-x:auto; margin-top:10px;"></div>
     </div>
@@ -4076,8 +4300,10 @@ async function initTableBrowserOptions(){
 async function loadTableBrowser(tableName){
   tableBrowserCurrent = tableName;
   const body = document.getElementById('table-browser-body');
-  if(!tableName){ body.innerHTML = ''; return; }
+  const csvBtn = document.getElementById('table-browser-csv-btn');
+  if(!tableName){ body.innerHTML = ''; if(csvBtn) csvBtn.disabled = true; return; }
   body.innerHTML = `<div class="row-sub">Loading ${tableName}…</div>`;
+  if(csvBtn) csvBtn.disabled = true;
   try{
     const resp = await apiFetch(`/admin/tables/${tableName}?limit=50`);
     tableBrowserColumns = resp.columns;
@@ -4091,8 +4317,202 @@ async function loadTableBrowser(tableName){
         </tbody>
       </table>
     `;
+    if(csvBtn) csvBtn.disabled = resp.total === 0;
   }catch(err){
     body.innerHTML = `<div class="empty-state"><div class="ic">⚠</div>Could not load table: ${err.message}</div>`;
+  }
+}
+
+async function downloadTableBrowserCsv(){
+  if(!tableBrowserCurrent) return;
+  const csvBtn = document.getElementById('table-browser-csv-btn');
+  if(csvBtn){ csvBtn.disabled = true; csvBtn.textContent = 'Preparing…'; }
+  try{
+    const res = await fetch(`${API_BASE_URL}/admin/tables/${tableBrowserCurrent}/export`, {
+      headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {},
+    });
+    if(!res.ok){
+      let msg = `${res.status} ${res.statusText}`;
+      try{ const data = await res.json(); if(data && data.detail) msg = data.detail; }catch(e){}
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${tableBrowserCurrent}.csv`;
+    link.click();
+    showToast(`${tableBrowserCurrent}.csv downloaded.`, 'success');
+  }catch(err){
+    showToast('Could not download CSV: ' + err.message, 'error');
+  }finally{
+    if(csvBtn){ csvBtn.disabled = false; csvBtn.textContent = '⇩ Download CSV'; }
+  }
+}
+
+/* ============================================================
+   PAGE: SUPPORT
+   A direct query/chat channel with the System Admin team.
+   - Researcher / Reviewer / Institution Admin: one conversation thread
+     with the System Admin, backed by GET/POST /support/messages.
+   - System Admin: an inbox of every open thread, backed by
+     GET /support/threads and GET/POST /support/threads/{user_id}.
+   ============================================================ */
+let supportThreads = [];
+let supportActiveThreadUserId = null;
+let supportMessages = [];
+let supportPolling = null;
+
+function supportChatBubbleHtml(m, isAdminView){
+  // isAdminView flips which side of the conversation is styled as "me"
+  // (right-aligned, indigo) vs "them" (left-aligned, neutral).
+  const mine = isAdminView ? m.is_from_admin : !m.is_from_admin;
+  const when = new Date(m.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  return `
+    <div style="display:flex; flex-direction:column; align-items:${mine ? 'flex-end' : 'flex-start'}; margin-bottom:10px;">
+      <div style="max-width:78%; padding:10px 14px; border-radius:14px; font-size:13.5px; line-height:1.45;
+        background:${mine ? 'var(--indigo)' : 'var(--clay-lo)'}; color:${mine ? '#fff' : 'var(--ink)'};">
+        ${!mine ? `<div style="font-size:11px; font-weight:700; opacity:.75; margin-bottom:3px;">${m.sender_name}${m.is_from_admin ? ' · System Admin' : ''}</div>` : ''}
+        <div>${String(m.body).replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+      </div>
+      <div class="row-sub" style="font-size:11px; margin-top:3px;">${when}</div>
+    </div>
+  `;
+}
+
+function renderSupport(){
+  const isSystemAdmin = session && session.role === 'system_admin';
+  if(isSystemAdmin) return renderSupportInboxShell();
+  return `
+    <div class="page-head">
+      <div><div class="page-eyebrow">Direct line to support</div><h2>Contact Support</h2><p>Message the System Admin team directly — questions, issues, or anything you're stuck on.</p></div>
+    </div>
+    <div class="clay card" style="display:flex; flex-direction:column; height:min(560px, 70vh);">
+      <div id="support-thread-body" style="flex:1; overflow-y:auto; padding:4px 4px 8px;">
+        <div class="row-sub">Loading your conversation…</div>
+      </div>
+      <div style="display:flex; gap:8px; padding-top:10px; border-top:1px solid var(--clay-lo);">
+        <textarea id="support-compose-input" rows="2" placeholder="Type your question or issue for the System Admin…" style="flex:1; resize:none; font-family:inherit; font-size:14px; padding:10px 12px; border-radius:12px; border:none; background:var(--clay); box-shadow:var(--shadow-in);"></textarea>
+        <button class="btn" style="align-self:flex-end;" onclick="submitSupportMessage()">Send</button>
+      </div>
+      <div id="support-compose-error" style="color:var(--red); font-size:13px; margin-top:6px;"></div>
+    </div>
+  `;
+}
+
+function renderSupportInboxShell(){
+  return `
+    <div class="page-head">
+      <div><div class="page-eyebrow">Platform support</div><h2>Support Inbox</h2><p>Direct messages from Researchers, Reviewers and Institution Admins across the platform.</p></div>
+    </div>
+    <div class="grid" style="grid-template-columns: 300px 1fr; gap:16px; align-items:stretch;">
+      <div class="clay card" style="padding:10px; height:min(560px, 70vh); overflow-y:auto;">
+        <div id="support-thread-list"><div class="row-sub" style="padding:10px;">Loading conversations…</div></div>
+      </div>
+      <div class="clay card" style="display:flex; flex-direction:column; height:min(560px, 70vh);">
+        <div id="support-inbox-header" class="card-sub" style="padding-bottom:8px; border-bottom:1px solid var(--clay-lo); margin-bottom:8px;">Select a conversation on the left.</div>
+        <div id="support-thread-body" style="flex:1; overflow-y:auto; padding:4px;"></div>
+        <div id="support-inbox-composer" style="display:none; gap:8px; padding-top:10px; border-top:1px solid var(--clay-lo);">
+          <textarea id="support-compose-input" rows="2" placeholder="Reply as System Admin…" style="flex:1; resize:none; font-family:inherit; font-size:14px; padding:10px 12px; border-radius:12px; border:none; background:var(--clay); box-shadow:var(--shadow-in);"></textarea>
+          <button class="btn" style="align-self:flex-end;" onclick="submitSupportMessage()">Send</button>
+        </div>
+        <div id="support-compose-error" style="color:var(--red); font-size:13px; margin-top:6px;"></div>
+      </div>
+    </div>
+  `;
+}
+
+function initSupportPage(){
+  if(supportPolling){ clearInterval(supportPolling); supportPolling = null; }
+  if(session.role === 'system_admin'){
+    supportActiveThreadUserId = null;
+    loadSupportThreadsList();
+  }else{
+    loadMySupportThread();
+  }
+}
+
+async function loadMySupportThread(){
+  const body = document.getElementById('support-thread-body');
+  try{
+    const msgs = await apiFetch('/support/messages');
+    supportMessages = msgs;
+    if(!body) return; // navigated away before this resolved
+    body.innerHTML = msgs.length
+      ? msgs.map(m => supportChatBubbleHtml(m, false)).join('')
+      : `<div class="empty-state" style="padding:30px 0;"><div class="ic">💬</div>No messages yet — send a note below and the System Admin team will reply here.</div>`;
+    body.scrollTop = body.scrollHeight;
+  }catch(err){
+    if(body) body.innerHTML = `<div class="empty-state"><div class="ic">⚠</div>Could not load your conversation: ${err.message}</div>`;
+  }
+}
+
+async function loadSupportThreadsList(){
+  const listEl = document.getElementById('support-thread-list');
+  try{
+    supportThreads = await apiFetch('/support/threads');
+    if(!listEl) return;
+    listEl.innerHTML = supportThreads.length ? supportThreads.map(t => `
+      <div onclick="openSupportThread('${t.user_id}')" style="cursor:pointer; padding:10px; border-radius:10px; margin-bottom:4px;
+        background:${supportActiveThreadUserId===t.user_id ? 'var(--clay-lo)' : 'transparent'};">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <b style="font-size:13.5px;">${t.user_name}</b>
+          ${t.unread_count ? `<span class="badge badge-submitted" style="font-size:10.5px;">${t.unread_count} new</span>` : ''}
+        </div>
+        <div class="row-sub" style="font-size:11.5px;">${ROLE_LABELS[t.user_role] || t.user_role}${t.institution_name ? ' · ' + t.institution_name : ''}</div>
+        <div class="row-sub" style="font-size:12px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${(t.last_message||'').replace(/</g,'&lt;')}</div>
+      </div>
+    `).join('') : `<div class="empty-state" style="padding:20px 10px;"><div class="ic">💬</div>No support conversations yet.</div>`;
+  }catch(err){
+    if(listEl) listEl.innerHTML = `<div class="empty-state"><div class="ic">⚠</div>Could not load conversations: ${err.message}</div>`;
+  }
+}
+
+async function openSupportThread(userId){
+  supportActiveThreadUserId = userId;
+  const thread = supportThreads.find(t => t.user_id === userId);
+  const header = document.getElementById('support-inbox-header');
+  const body = document.getElementById('support-thread-body');
+  const composer = document.getElementById('support-inbox-composer');
+  if(header) header.innerHTML = thread ? `<b>${thread.user_name}</b> · ${ROLE_LABELS[thread.user_role] || thread.user_role}${thread.institution_name ? ' · ' + thread.institution_name : ''}` : 'Conversation';
+  if(composer) composer.style.display = 'flex';
+  if(body) body.innerHTML = `<div class="row-sub">Loading…</div>`;
+  await loadSupportThreadsList(); // refresh unread badges/highlight
+  try{
+    const msgs = await apiFetch(`/support/threads/${userId}`);
+    supportMessages = msgs;
+    if(!body) return;
+    body.innerHTML = msgs.length
+      ? msgs.map(m => supportChatBubbleHtml(m, true)).join('')
+      : `<div class="empty-state" style="padding:30px 0;"><div class="ic">💬</div>No messages in this thread yet.</div>`;
+    body.scrollTop = body.scrollHeight;
+  }catch(err){
+    if(body) body.innerHTML = `<div class="empty-state"><div class="ic">⚠</div>Could not load thread: ${err.message}</div>`;
+  }
+}
+
+async function submitSupportMessage(){
+  const input = document.getElementById('support-compose-input');
+  const errEl = document.getElementById('support-compose-error');
+  const body = input ? input.value.trim() : '';
+  if(!body){ if(errEl) errEl.textContent = 'Type a message first.'; return; }
+  if(session.role === 'system_admin' && !supportActiveThreadUserId){
+    if(errEl) errEl.textContent = 'Choose a conversation on the left first.';
+    return;
+  }
+  if(errEl) errEl.textContent = '';
+  try{
+    await apiFetch('/support/messages', {
+      method: 'POST',
+      body: JSON.stringify(Object.assign({ body }, session.role === 'system_admin' ? { thread_user_id: supportActiveThreadUserId } : {})),
+    });
+    if(input) input.value = '';
+    if(session.role === 'system_admin'){
+      await openSupportThread(supportActiveThreadUserId);
+    }else{
+      await loadMySupportThread();
+    }
+  }catch(err){
+    if(errEl) errEl.textContent = err.message;
   }
 }
 
@@ -4106,6 +4526,7 @@ async function loadTableBrowser(tableName){
    ============================================================ */
 let MY_LASTNAME = '';                 // set from the logged-in user's real researcher profile in loadAllData()
 let MY_INSTITUTION = '';              // set from the logged-in user's real institution in loadAllData()
+let MY_INSTITUTION_ID = null;         // id form of MY_INSTITUTION, used to scope which conferences an Institution Admin may edit
 const ANALYSIS_PAGE_SIZE = 5;
 
 let analysisFilters = {year:'all', inst:'all', dept:'all', researcher:'all', pubType:'all', pubStatus:'all', project:'all', conference:'all'};
@@ -5058,7 +5479,7 @@ function drawNetworkAll(){
   // respectively, so neither gets overwritten with the decorative random
   // graph used only on the pre-login landing page and Collaborations page.
   if(document.getElementById('dash-network') && currentPage==='dashboard') drawDashboardChart();
-  if(document.getElementById('collab-network')) drawNetwork('collab-network', 900, 160, 24);
+  if(document.getElementById('collab-network') && currentPage==='collaborations') initCollaborationsNetwork();
 }
 
 /* keyboard: escape closes modal */

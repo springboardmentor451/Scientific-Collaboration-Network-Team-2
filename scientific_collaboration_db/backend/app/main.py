@@ -115,7 +115,7 @@ from app.database import get_db
 from app.models import Conference, Institution, Project, Publication, PublicationAuthor, Researcher, User, UserRole
 from app.routers import (
     admin, auth, citations, conference_participations, conferences,
-    institutions, projects, publications, researchers, reviews,
+    institutions, projects, publications, researchers, reviews, support,
 )
 from app.schemas.common import ConferenceOut, InstitutionOut, ProjectOut, PublicationOut, ResearcherOut
 
@@ -184,6 +184,7 @@ app.include_router(institutions.router)
 app.include_router(conferences.router)
 app.include_router(admin.router)
 app.include_router(reviews.router)
+app.include_router(support.router)
 
 
 @app.get("/health", tags=["system"])

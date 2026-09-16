@@ -28,14 +28,28 @@ class Conference(Base):
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
 
+    # Which institution owns/organizes this conference. NULL means it was
+    # created by a System Admin as a platform-wide conference not tied to
+    # any single institution. An Institution Admin's conferences are always
+    # stamped with their own institution so they can only ever edit their
+    # own institution's conferences, never another institution's.
+    institution_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("institutions.id", ondelete="SET NULL")
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     participations: Mapped[list["ConferenceParticipation"]] = relationship(
         back_populates="conference", cascade="all, delete-orphan"
     )
+    institution: Mapped["Institution"] = relationship(foreign_keys=[institution_id])
 
     def __repr__(self) -> str:
         return f"<Conference {self.name}>"
+
+    @property
+    def institution_name(self) -> str | None:
+        return self.institution.name if self.institution else None
 
 
 class ConferenceParticipation(Base):
