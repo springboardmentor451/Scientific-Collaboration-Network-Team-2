@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 
 from pydantic import BaseModel, field_validator, model_validator
@@ -9,6 +10,10 @@ class ConferenceCreate(BaseModel):
     website: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    # Optional on the wire — a System Admin may pick any institution (or
+    # leave it unset for a platform-wide conference); an Institution Admin's
+    # value here is ignored server-side in favor of their own institution.
+    institution_id: uuid.UUID | None = None
 
     @field_validator("name")
     @classmethod
@@ -30,6 +35,7 @@ class ConferenceUpdate(BaseModel):
     website: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    institution_id: uuid.UUID | None = None
 
     @field_validator("name")
     @classmethod

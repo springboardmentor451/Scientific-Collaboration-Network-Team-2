@@ -26,6 +26,7 @@ from app.models.conference import (  # noqa: F401
 from app.models.citation import Citation  # noqa: F401
 from app.models.audit import AuditLog  # noqa: F401
 from app.models.review import PublicationReview, ReviewStatus  # noqa: F401
+from app.models.support import SupportMessage  # noqa: F401
 
 __all__ = [
     "Base",
@@ -53,4 +54,5 @@ __all__ = [
     "AuditLog",
     "PublicationReview",
     "ReviewStatus",
+    "SupportMessage",
 ]

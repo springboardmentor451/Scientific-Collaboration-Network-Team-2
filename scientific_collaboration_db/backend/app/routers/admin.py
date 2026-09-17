@@ -1,9 +1,12 @@
+import csv
+import io
 from datetime import date, datetime
 from decimal import Decimal
 import secrets
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
@@ -389,11 +392,102 @@ def _serialize_value(v):
     return v
 
 
+# Tables an Institution Admin is allowed to browse at all. "institutions"
+# and "users" are included but row-filtered down to their own institution
+# (see _institution_scoped_rows below) — everything else that has no
+# institution concept at all (e.g. raw platform config) simply isn't
+# exposed to them.
+INSTITUTION_ADMIN_TABLES = {
+    "institutions", "users", "researchers", "tags", "publications",
+    "publication_authors", "projects", "project_members", "collaborations",
+    "conferences", "conference_participations", "citations", "audit_logs",
+}
+
+
+def _institution_scoped_rows(table_name: str, rows: list, inst_id, db: Session) -> list:
+    """
+    Filters an already-fetched list of ORM rows down to just the ones that
+    belong to an Institution Admin's own institution. Done in Python (not a
+    SQL WHERE) so every table can reuse the same "which institution owns
+    this row" rules already established elsewhere in this file (list_users,
+    list_audit_logs) and in Publication.institution_name, without having to
+    duplicate multi-table JOIN logic per table here.
+    """
+    inst_id = str(inst_id)
+
+    def researcher_matches(researcher) -> bool:
+        return bool(researcher and researcher.institution_id and str(researcher.institution_id) == inst_id)
+
+    if table_name == "institutions":
+        return [r for r in rows if str(r.id) == inst_id]
+    if table_name == "users":
+        return [r for r in rows if r.role != UserRole.SYSTEM_ADMIN and r.effective_institution_id and str(r.effective_institution_id) == inst_id]
+    if table_name == "researchers":
+        return [r for r in rows if researcher_matches(r)]
+    if table_name == "tags":
+        return rows  # global taxonomy, not institution-owned — safe to show in full
+    if table_name == "publications":
+        return [r for r in rows if any(researcher_matches(a.researcher) for a in r.authors)]
+    if table_name == "publication_authors":
+        return [r for r in rows if researcher_matches(r.researcher)]
+    if table_name == "projects":
+        return [
+            r for r in rows
+            if (r.lead_institution_id and str(r.lead_institution_id) == inst_id)
+            or any(researcher_matches(m.researcher) for m in r.members)
+        ]
+    if table_name == "project_members":
+        return [r for r in rows if researcher_matches(r.researcher)]
+    if table_name == "collaborations":
+        return [
+            r for r in rows
+            if (r.institution_a_id and str(r.institution_a_id) == inst_id)
+            or (r.institution_b_id and str(r.institution_b_id) == inst_id)
+        ]
+    if table_name == "conferences":
+        return [r for r in rows if r.institution_id and str(r.institution_id) == inst_id]
+    if table_name == "conference_participations":
+        return [r for r in rows if researcher_matches(r.researcher)]
+    if table_name == "citations":
+        return [
+            r for r in rows
+            if r.citing_publication and any(researcher_matches(a.researcher) for a in r.citing_publication.authors)
+        ]
+    if table_name == "audit_logs":
+        kept = []
+        for r in rows:
+            u = db.get(User, r.user_id) if r.user_id else None
+            if u and u.role != UserRole.SYSTEM_ADMIN and u.effective_institution_id and str(u.effective_institution_id) == inst_id:
+                kept.append(r)
+        return kept
+    return []
+
+
+def _rows_for_table(table_name: str, model, db: Session, current_user: User):
+    """Returns the full (unpaginated) list of ORM rows this user may see for a table."""
+    if table_name not in TABLE_REGISTRY:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown table '{table_name}'. Allowed: {', '.join(TABLE_REGISTRY.keys())}")
+
+    if current_user.role == UserRole.SYSTEM_ADMIN:
+        return db.query(model).all()
+
+    # Institution Admin
+    if table_name not in INSTITUTION_ADMIN_TABLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this table")
+    inst_id = current_user.effective_institution_id
+    if not inst_id:
+        return []
+    return _institution_scoped_rows(table_name, db.query(model).all(), inst_id, db)
+
+
 @router.get("/tables")
-def list_tables(db: Session = Depends(get_db), _=Depends(system_admin_only)):
+def list_tables(db: Session = Depends(get_db), current_user: User = Depends(admin_or_institution_admin)):
     counts = {}
-    for name, model in TABLE_REGISTRY.items():
-        counts[name] = db.query(model).count()
+    registry = TABLE_REGISTRY if current_user.role == UserRole.SYSTEM_ADMIN else {
+        k: v for k, v in TABLE_REGISTRY.items() if k in INSTITUTION_ADMIN_TABLES
+    }
+    for name, model in registry.items():
+        counts[name] = len(_rows_for_table(name, model, db, current_user))
     return {"tables": counts}
 
 
@@ -403,7 +497,7 @@ def browse_table(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    _=Depends(system_admin_only),
+    current_user: User = Depends(admin_or_institution_admin),
 ):
     model = TABLE_REGISTRY.get(table_name)
     if not model:
@@ -412,11 +506,44 @@ def browse_table(
     mapper = inspect(model)
     columns = [c.key for c in mapper.column_attrs]
 
-    total = db.query(model).count()
-    rows = db.query(model).offset(offset).limit(limit).all()
+    all_rows = _rows_for_table(table_name, model, db, current_user)
+    total = len(all_rows)
+    rows = all_rows[offset:offset + limit]
 
-    serialized = []
-    for row in rows:
-        serialized.append({col: _serialize_value(getattr(row, col)) for col in columns})
+    serialized = [{col: _serialize_value(getattr(row, col)) for col in columns} for row in rows]
 
     return {"table": table_name, "columns": columns, "total": total, "rows": serialized}
+
+
+@router.get("/tables/{table_name}/export")
+def export_table_csv(
+    table_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_or_institution_admin),
+):
+    """
+    Downloads the full (unpaginated) contents of a table as CSV — same
+    permissions and same institution scoping as GET /admin/tables/{name},
+    just without the 200-row page cap so the download is complete.
+    """
+    model = TABLE_REGISTRY.get(table_name)
+    if not model:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown table '{table_name}'. Allowed: {', '.join(TABLE_REGISTRY.keys())}")
+
+    mapper = inspect(model)
+    columns = [c.key for c in mapper.column_attrs]
+    rows = _rows_for_table(table_name, model, db, current_user)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(columns)
+    for row in rows:
+        writer.writerow([_serialize_value(getattr(row, col)) for col in columns])
+
+    log_action(db, current_user.id, "EXPORT", "TableCSV", None, {"table": table_name, "rows": len(rows)})
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{table_name}.csv"'},
+    )
